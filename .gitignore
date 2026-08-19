@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Env / secrets
+.env
+*.env.local
+
+# MkDocs build output
+site/
+
+# Java / Spring Boot
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/
+hs_err_pid*
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Logs
+*.log

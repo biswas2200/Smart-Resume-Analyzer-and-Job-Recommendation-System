@@ -1,0 +1,102 @@
+[
+  {
+    "role": "Backend Software Engineer",
+    "skills": ["Java", "Python", "SQL", "REST APIs", "Spring Boot", "Microservices", "Git", "Docker"]
+  },
+  {
+    "role": "Frontend Software Engineer",
+    "skills": ["JavaScript", "TypeScript", "React", "HTML", "CSS", "REST APIs", "Git", "Webpack"]
+  },
+  {
+    "role": "Full Stack Developer",
+    "skills": ["JavaScript", "TypeScript", "React", "Node.js", "SQL", "REST APIs", "Git", "Docker"]
+  },
+  {
+    "role": "Data Scientist",
+    "skills": ["Python", "SQL", "Machine Learning", "Statistics", "Pandas", "Scikit-learn", "Data Visualization"]
+  },
+  {
+    "role": "Data Analyst",
+    "skills": ["SQL", "Excel", "Data Visualization", "Python", "Statistics", "Power BI", "Tableau"]
+  },
+  {
+    "role": "Data Engineer",
+    "skills": ["Python", "SQL", "ETL", "Apache Spark", "Airflow", "Data Warehousing", "AWS", "Docker"]
+  },
+  {
+    "role": "Machine Learning Engineer",
+    "skills": ["Python", "Machine Learning", "Deep Learning", "PyTorch", "TensorFlow", "MLOps", "Docker", "SQL"]
+  },
+  {
+    "role": "DevOps Engineer",
+    "skills": ["Docker", "Kubernetes", "CI/CD", "AWS", "Terraform", "Linux", "Bash", "Git"]
+  },
+  {
+    "role": "Site Reliability Engineer",
+    "skills": ["Linux", "Kubernetes", "Monitoring", "Incident Response", "Python", "AWS", "CI/CD", "Bash"]
+  },
+  {
+    "role": "Cloud Engineer",
+    "skills": ["AWS", "Azure", "GCP", "Terraform", "Networking", "Linux", "Docker", "Kubernetes"]
+  },
+  {
+    "role": "Android Developer",
+    "skills": ["Kotlin", "Java", "Android SDK", "REST APIs", "Git", "SQLite", "Jetpack Compose"]
+  },
+  {
+    "role": "iOS Developer",
+    "skills": ["Swift", "iOS SDK", "REST APIs", "Git", "Core Data", "SwiftUI"]
+  },
+  {
+    "role": "QA / Test Engineer",
+    "skills": ["Test Automation", "Selenium", "Manual Testing", "SQL", "API Testing", "Git", "CI/CD"]
+  },
+  {
+    "role": "Product Manager",
+    "skills": ["Product Strategy", "Roadmapping", "Stakeholder Management", "Data Analysis", "Agile", "User Research"]
+  },
+  {
+    "role": "UX/UI Designer",
+    "skills": ["Figma", "User Research", "Wireframing", "Prototyping", "Interaction Design", "Usability Testing"]
+  },
+  {
+    "role": "Business Analyst",
+    "skills": ["Requirements Gathering", "SQL", "Data Analysis", "Excel", "Stakeholder Management", "Process Modeling"]
+  },
+  {
+    "role": "Cybersecurity Analyst",
+    "skills": ["Network Security", "Vulnerability Assessment", "SIEM", "Incident Response", "Linux", "Python"]
+  },
+  {
+    "role": "Database Administrator",
+    "skills": ["SQL", "PostgreSQL", "MySQL", "Database Tuning", "Backup & Recovery", "Linux"]
+  },
+  {
+    "role": "Systems Administrator",
+    "skills": ["Linux", "Windows Server", "Networking", "Bash", "Active Directory", "Virtualization"]
+  },
+  {
+    "role": "Technical Writer",
+    "skills": ["Technical Documentation", "API Documentation", "Markdown", "Editing", "Git", "Information Architecture"]
+  },
+  {
+    "role": "IT Project Manager",
+    "skills": ["Agile", "Scrum", "Risk Management", "Stakeholder Management", "Budgeting", "Jira"]
+  },
+  {
+    "role": "AI Research Engineer",
+    "skills": ["Python", "Deep Learning", "PyTorch", "Research Methodology", "Machine Learning", "Statistics", "Linear Algebra"]
+  },
+  {
+    "role": "Blockchain Developer",
+    "skills": ["Solidity", "Smart Contracts", "Ethereum", "JavaScript", "Cryptography", "Git"]
+  },
+  {
+    "role": "Embedded Systems Engineer",
+    "skills": ["C", "C++", "Embedded Systems", "RTOS", "Microcontrollers", "Debugging"]
+  },
+  {
+    "role": "Solutions Architect",
+    "skills": ["System Design", "AWS", "Microservices", "REST APIs", "Stakeholder Management", "Networking"]
+  }
+]
