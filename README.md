@@ -1,4 +1,4 @@
-# Intelligent Resume Analyser and Career Recommendation System
+# Smart Resume Analyser and Job Recommendation System
 
 An AI-assisted resume analyser and career recommendation system, built with a
 deterministic core (ATS scoring, embedding-based skill-to-role matching) and a
