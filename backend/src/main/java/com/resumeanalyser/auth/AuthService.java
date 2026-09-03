@@ -14,6 +14,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Business logic behind the two public auth endpoints: creating a new account
+ * and logging into an existing one. Both end the same way -- a signed JWT handed
+ * back to the caller -- so that shared step lives in {@link #issueToken}.
+ */
 @Service
 public class AuthService {
 
@@ -34,6 +39,14 @@ public class AuthService {
         this.jwtService = jwtService;
     }
 
+    /**
+     * Creates a new account and immediately logs it in (returns a usable token,
+     * so the caller doesn't have to make a second request to log in right after registering).
+     *
+     * @param request the new user's email and chosen plaintext password
+     * @return a token for the newly created account
+     * @throws EmailAlreadyInUseException if the email is already registered
+     */
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
@@ -48,6 +61,13 @@ public class AuthService {
         return issueToken(user);
     }
 
+    /**
+     * Verifies a login attempt's credentials and, if they check out, issues a fresh token.
+     *
+     * @param request the email/password being submitted
+     * @return a token for the authenticated account
+     * @throws org.springframework.security.authentication.BadCredentialsException if the email or password is wrong
+     */
     public AuthResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.email(), request.password()));
@@ -59,6 +79,12 @@ public class AuthService {
         return issueToken(user);
     }
 
+    /**
+     * Builds the JWT + user-info response shared by both register and login.
+     *
+     * @param user the account to issue a token for
+     * @return the token, its expiry, and a public-safe view of the account
+     */
     private AuthResponse issueToken(User user) {
         UserDetails userDetails = org.springframework.security.core.userdetails.User
                 .withUsername(user.getEmail())
