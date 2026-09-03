@@ -38,3 +38,6 @@ build/
 
 # Logs
 *.log
+
+# Internal working docs (SRS draft, notes) -- not meant for the public repo
+documents/
