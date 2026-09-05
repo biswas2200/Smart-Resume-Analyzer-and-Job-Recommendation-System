@@ -12,7 +12,7 @@ hosted outside this repo — see the **Documentation** section below.
 |---|---|---|
 | [`ml-service/`](ml-service/README.md) | In progress | Python/FastAPI ML pipeline: parsing, skill normalization, embedding-based role matching, ATS scoring, gap analysis, explanations. |
 | [`backend/`](backend/README.md) | Planned | Spring Boot API: auth, orchestration, persistence, temporal (EMA) skill-vector updates. |
-| [`frontend/`](frontend/README.md) | Planned | React/Angular UI: upload, dashboard, recommendations. |
+| [`frontend/`](frontend/README.md) | In progress | Angular UI: auth (wired to the real backend), upload/dashboard/recommendations/feedback (mocked pending their backend endpoints). |
 
 ## Build order
 
@@ -51,7 +51,7 @@ tracked here on purpose.
 
 | Layer | Stack | Status |
 |---|---|---|
-| Frontend | React or Angular (not yet decided) | Planned |
+| Frontend | Angular 22 (standalone components, TypeScript), Vitest | In progress — `frontend/` |
 | Backend | Java 21, Spring Boot 3.x, Spring Security (JWT), PostgreSQL | Planned |
 | ML service | Python 3.12, FastAPI, `sentence-transformers` (`all-MiniLM-L6-v2`), Groq API | In progress — this is what's actually built in `ml-service/` |
 | Docs | MkDocs + Material, static HTML, hosted separately | In progress |

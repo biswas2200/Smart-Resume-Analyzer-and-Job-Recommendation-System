@@ -1,0 +1,70 @@
+<div class="page">
+  <h1>Upload your resume</h1>
+
+  <section class="card">
+    <label for="resume-file">Resume file (PDF or DOCX, up to 5 MB)</label>
+    <input
+      id="resume-file"
+      type="file"
+      accept=".pdf,.docx"
+      data-testid="resume-file-input"
+      (change)="onFileSelected($event)"
+    />
+
+    @if (errorMessage()) {
+      <p class="banner banner--error" data-testid="upload-error">{{ errorMessage() }}</p>
+    }
+
+    <button type="button" [disabled]="isUploading()" data-testid="upload-submit" (click)="upload()">
+      {{ isUploading() ? 'Uploading…' : 'Upload' }}
+    </button>
+  </section>
+
+  @if (latestParsedProfile(); as profile) {
+    <section class="card">
+      <h2>Extracted profile</h2>
+      <p data-testid="profile-name">
+        <strong>{{ profile.name }}</strong>
+      </p>
+      <p>{{ profile.email }}</p>
+      <ul class="skill-list">
+        @for (skill of profile.skills; track skill) {
+          <li data-testid="profile-skill">{{ skill }}</li>
+        }
+      </ul>
+
+      @if (profile.experience.length) {
+        <h3>Experience</h3>
+        <ul>
+          @for (entry of profile.experience; track entry.title + entry.organization) {
+            <li>{{ entry.title }} — {{ entry.organization }} ({{ entry.duration }})</li>
+          }
+        </ul>
+      }
+
+      @if (profile.education.length) {
+        <h3>Education</h3>
+        <ul>
+          @for (entry of profile.education; track entry.degree + entry.institution) {
+            <li>{{ entry.degree }} — {{ entry.institution }} ({{ entry.year }})</li>
+          }
+        </ul>
+      }
+    </section>
+  }
+
+  <section class="card">
+    <h2>Upload history</h2>
+    @if (versions().length === 0) {
+      <p>No resumes uploaded yet.</p>
+    } @else {
+      <ul class="version-list">
+        @for (resume of versions(); track resume.id) {
+          <li data-testid="resume-version-item">
+            Version {{ resume.version }} — uploaded {{ resume.uploadedAt | date: 'medium' }}
+          </li>
+        }
+      </ul>
+    }
+  </section>
+</div>

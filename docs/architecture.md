@@ -7,7 +7,7 @@
 
 The market gap this project targets (see [Abstraction Overview](abstraction-overview.md)) is that most "AI resume analyser" projects wrap a single chat-style LLM prompt around the whole problem: parsing, scoring, matching, and explaining all happen inside one LLM call. That makes the result unreproducible (the same resume can score differently on two runs), unexplainable (there's no line-item breakdown of *why* a score is what it is), and static (matching logic never improves from new data).
 
-This system is built the opposite way: a **deterministic core** does all scoring, normalization, and matching with plain code (regex, a lookup table, cosine similarity over embeddings). The LLM is used for exactly two narrowly-scoped tasks — extracting structured fields from raw resume text, and turning already-computed numbers into a readable paragraph. The LLM never decides a score or a ranking.
+This system is built the opposite way: a **deterministic core** does all scoring, normalization, and matching with plain code (regex, a lookup table, cosine similarity over embeddings). Structured-field extraction from raw resume text runs on a **local NER model by default — no LLM, no external API call at all**; an LLM remains available as an opt-in extraction path, and is used unconditionally for exactly one task — turning already-computed numbers into a readable paragraph. The LLM never decides a score or a ranking.
 
 ## 2. Component diagram (target architecture)
 
@@ -27,8 +27,10 @@ flowchart TB
     end
 
     subgraph ML["Python ML Service  (implemented — ml-service/)"]
-        ROUTER["FastAPI router\n/parse /match /ats-score /analyze"]
-        PARSER["parser.py\nLLM: resume text -> ResumeProfile"]
+        ROUTER["FastAPI router\n/parse /parse-file /match /ats-score /analyze"]
+        UPLOAD["upload.py + document_extraction/\nfile bytes -> text\n(PdfTextExtractor, column-aware)"]
+        PARSER["parser.py\ntext -> ResumeProfile\n(routes to NER or LLM)"]
+        NER["local_ner_parser.py\nlocal NER model — default,\nno API key/network"]
         NORM["normalizer.py\nskill taxonomy lookup"]
         MATCHER["matcher.py\nembedding + cosine similarity"]
         ATS["ats_score.py\nrule-based ATS checks"]
@@ -38,7 +40,7 @@ flowchart TB
     end
 
     DB[("PostgreSQL 15+\nusers · resumes · profiles · roles\nversioned skill-vectors · recommendations · feedback")]
-    LLM[["Groq LLM API\n(llama-3.3-70b-versatile)"]]
+    LLM[["LLM API — Groq (default) or Gemini\n(llm_provider), opt-in for parsing,\nalways used for explanation"]]
 
     UI -->|HTTPS / REST / JSON| API
     API --> AUTH
@@ -47,14 +49,17 @@ flowchart TB
     ORCH --> REPO
     REPO --> DB
 
+    ROUTER --> UPLOAD
+    UPLOAD --> PARSER
     ROUTER --> PARSER
     ROUTER --> MATCHER
     ROUTER --> ATS
     ROUTER --> GAP
     ROUTER --> EXPL
+    PARSER --> NER
+    PARSER -.->|opt-in, PARSER_BACKEND=llm| LLM
     MATCHER --> NORM
     MATCHER --> EMB
-    PARSER -.->|HTTPS, extraction only| LLM
     EXPL -.->|HTTPS, explanation only| LLM
 
     style ML fill:#eef6ff,stroke:#4a7dbd
@@ -78,9 +83,9 @@ flowchart LR
         G["gap_analysis.py\nset difference"]
         N --> M
     end
-    subgraph LLMScoped["LLM-scoped — narrow, swappable via LLMClient Protocol"]
+    subgraph LLMScoped["LLM-scoped — narrow, swappable via LLMClient Protocol; opt-in for parsing"]
         direction TB
-        P["parser.py\nresume text -> JSON profile\n(extraction only)"]
+        P["parser.py\nresume text -> JSON profile\n(local NER by default; LLM path\navailable, extraction only either way)"]
         E["explainer.py\nscores -> coaching prose\n(explanation only, cannot change scores)"]
     end
     P -->|profile.skills| N
@@ -93,7 +98,7 @@ flowchart LR
 Two properties fall out of this split directly:
 
 - **Reproducibility.** Given the same resume text and the same skill taxonomy/role dataset, `normalizer.py`, `matcher.py`, `ats_score.py`, and `gap_analysis.py` always return the same numbers — there's no sampling, no temperature, no model version drift affecting the score itself.
-- **Graceful degradation** (NFR-3.1 in the SRS): if the Groq API is down, `/match` and `/ats-score` keep working; only `/parse` (structured extraction) and the `explanation` field of `/analyze` are affected.
+- **Graceful degradation** (NFR-3.1 in the SRS): with the default configuration (`PARSER_BACKEND=local`), an LLM outage doesn't affect parsing at all — `/parse`, `/parse-file`, `/match`, and `/ats-score` all keep working; only the `explanation` field of `/analyze` is affected. Only when `PARSER_BACKEND=llm` is explicitly opted into does an LLM outage also affect `/parse`.
 
 ## 4. Deployment view (demonstration target)
 
@@ -109,7 +114,7 @@ flowchart LR
         end
         PG[("PostgreSQL container\n:5432")]
     end
-    GROQ[["Groq API\n(external, HTTPS)"]]
+    GROQ[["LLM API — Groq or Gemini\n(external, HTTPS; opt-in for parsing,\nalways used for explanation)"]]
 
     SPA -- HTTPS --> BE
     BE -- internal HTTP --> ML
@@ -123,13 +128,13 @@ Per the SRS design constraints (§2.5), the demo deployment targets free-tier cl
 
 Full breakdown in [DFD](dfd.md); summarized here as the request lifecycle for the primary `/analyze` endpoint:
 
-1. Client uploads a resume (backend, planned) or submits raw text (`ml-service` today).
-2. `parser.py` calls the Groq LLM once to turn text into a `ResumeProfile`.
+1. Client submits raw text (`POST /analyze`/`/parse`) or uploads a PDF (`POST /parse-file`, `ml-service` today — richer upload UX/versioning remain backend/frontend, planned). A PDF is extracted column-aware (`document_extraction/pdf_extractor.py`) so a multi-column resume's sections aren't interleaved, then handed to the same text pipeline below.
+2. `parser.py` runs the local NER model (`local_ner_parser.py`) by default to turn text into a `ResumeProfile` — no LLM call, no API key or network access needed. If `PARSER_BACKEND=llm` is explicitly set, it instead calls the configured LLM provider once.
 3. `normalizer.py` maps every extracted skill to its canonical form via the skill taxonomy.
 4. `matcher.py` embeds the normalized skill set and every curated role's skill set (`sentence-transformers`, model `all-MiniLM-L6-v2`), ranks roles by cosine similarity, and returns matched/missing skills per role.
 5. `ats_score.py` runs independently over the raw resume text (rule-based, no dependency on parsing).
 6. `gap_analysis.py` derives skill gaps directly from the matcher's `missing_skills`.
-7. `explainer.py` calls the Groq LLM a second time, strictly to turn the five outputs above into 2–4 coaching paragraphs — it cannot alter any number already computed.
+7. `explainer.py` calls the configured LLM provider (Groq by default, Gemini via `LLM_PROVIDER=gemini`), strictly to turn the five outputs above into 2–4 coaching paragraphs — it cannot alter any number already computed.
 8. The backend (planned) persists the resume version, parsed profile, and recommendation rows, and — on user feedback — feeds an exponential-moving-average update into the versioned `SkillVector` table (see [Database Schema](database-schema.md) §Temporal skill-vector store).
 
 ## Related documents

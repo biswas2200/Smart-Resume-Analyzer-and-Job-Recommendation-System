@@ -1,6 +1,6 @@
 # Intelligent Resume Analyser and Career Recommendation System — Documentation
 
-An AI-assisted resume analyser and career recommendation system, built with a **deterministic core** (ATS scoring, embedding-based skill-to-role matching) and a **narrow, well-scoped use of an LLM** (resume parsing and result explanation only — never resume rewriting, never scoring). See [Abstraction Overview](abstraction-overview.md) for why this split exists and what market gap it addresses.
+An AI-assisted resume analyser and career recommendation system, built with a **deterministic core** (ATS scoring, embedding-based skill-to-role matching) and a **narrow, well-scoped use of an LLM** — result explanation always, resume parsing only as an opt-in alternative to the default local NER model — never resume rewriting, never scoring. See [Abstraction Overview](abstraction-overview.md) for why this split exists and what market gap it addresses.
 
 This documentation set lives as a sibling folder to the code repository (`Smart-Resume-Analyzer-and-Job-Recommendation-System/`), per that repo's own README, which deliberately keeps design docs out of the tracked codebase and builds/deploys them independently.
 

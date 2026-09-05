@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.routers.analyze import router as analyze_router
+from app.routers.upload import router as upload_router
 
 app = FastAPI(
     title="Intelligent Resume Analyser — ML Service",
@@ -11,6 +12,7 @@ app = FastAPI(
 )
 
 app.include_router(analyze_router)
+app.include_router(upload_router)
 
 
 @app.get("/health")

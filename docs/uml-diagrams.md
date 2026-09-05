@@ -30,9 +30,11 @@ flowchart TB
     end
 
     subgraph MLSvc["ML Service component (implemented)"]
-        RouterComp["FastAPI Router"]
+        RouterComp["FastAPI Router\n(analyze + upload)"]
         SchemaComp["Pydantic Schemas"]
+        ExtractComp["document_extraction\n(PdfTextExtractor)"]
         ParserComp["parser"]
+        NerComp["local_ner_parser"]
         NormComp["normalizer"]
         MatchComp["matcher"]
         EmbedComp["embeddings"]
@@ -44,7 +46,7 @@ flowchart TB
     end
 
     DBComp[("PostgreSQL\n(planned)")]
-    GroqComp[["Groq API"]]
+    GroqComp[["LLM API — Groq/Gemini"]]
 
     UIComp --> AuthComp
     UIComp --> OrchComp
@@ -54,17 +56,21 @@ flowchart TB
     ClientComp -->|REST| RouterComp
 
     RouterComp --> SchemaComp
+    RouterComp --> ExtractComp
     RouterComp --> ParserComp
     RouterComp --> MatchComp
     RouterComp --> AtsComp
     RouterComp --> GapComp
     RouterComp --> ExplainComp
 
-    ParserComp --> LLMClientComp
+    ExtractComp --> ParserComp
+    ParserComp --> NerComp
+    ParserComp -.->|opt-in| LLMClientComp
     ExplainComp --> LLMClientComp
     MatchComp --> NormComp
     MatchComp --> EmbedComp
     LLMClientComp --> ConfigComp
+    NerComp --> ConfigComp
     EmbedComp --> ConfigComp
     LLMClientComp -.->|HTTPS| GroqComp
 

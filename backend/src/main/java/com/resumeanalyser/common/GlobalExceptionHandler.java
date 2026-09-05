@@ -1,12 +1,16 @@
 package com.resumeanalyser.common;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Catches exceptions that aren't specific to any one module -- request-body
@@ -18,6 +22,8 @@ import java.util.List;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
      * Handles a request body that failed its {@code @Valid} constraints
@@ -49,16 +55,45 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Last-resort catch-all for any exception no more specific handler dealt with.
-     * Deliberately returns a generic message instead of {@code e.getMessage()}, so
-     * internal error details (stack traces, SQL, file paths) never reach the client.
+     * Handles a request rejected by a {@code @PreAuthorize} check (see
+     * {@code SecurityConfig}'s {@code @EnableMethodSecurity}) -- the caller is
+     * authenticated, just not allowed to perform this specific action. Without
+     * this handler, such a rejection would otherwise fall through to
+     * {@link #handleUnexpected} and incorrectly report a 500.
      *
-     * @param e the unhandled exception (logged elsewhere, e.g. by {@code LoggingAspect})
-     * @return a 500 Internal Server Error response with a generic message
+     * @param e the exception Spring Security throws when a method-security check fails
+     * @return a 403 Forbidden response
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiError.of(HttpStatus.FORBIDDEN.value(), "You do not have permission to perform this action"));
+    }
+
+    /**
+     * Last-resort catch-all for any exception no more specific handler dealt with --
+     * i.e. an actual bug, not an expected failure like bad credentials or a
+     * duplicate email. Deliberately returns a generic message instead of
+     * {@code e.getMessage()}, so internal error details (stack traces, SQL, file
+     * paths) never reach the client. What the client gets instead is a random
+     * trace id, logged here alongside the real stack trace -- so a user quoting
+     * that id in a bug report is enough to find exactly what broke in the logs,
+     * without ever exposing that detail over the API itself.
+     *
+     * @param e the unhandled exception; logged here in full (this is the one place
+     *          in the app that logs a complete stack trace for it -- {@code LoggingAspect}
+     *          only logs the exception's class and message, not its trace)
+     * @return a 500 Internal Server Error response with a generic message and a trace id
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(Exception e) {
+        String traceId = UUID.randomUUID().toString();
+        log.error("Unhandled exception, traceId={}", traceId, e);
+
         return ResponseEntity.internalServerError()
-                .body(ApiError.of(HttpStatus.INTERNAL_SERVER_ERROR.value(), "An unexpected error occurred"));
+                .body(ApiError.ofUnexpected(
+                        HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                        "An unexpected error occurred. If this persists, please report it with trace id " + traceId,
+                        traceId));
     }
 }

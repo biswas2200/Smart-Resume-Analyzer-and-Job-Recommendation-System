@@ -1,0 +1,138 @@
+/* Global styles + a small design-system layer shared across every feature page,
+   so individual component stylesheets only need to hold page-specific layout. */
+
+:root {
+  --color-bg: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-border: #d7dce2;
+  --color-text: #1f2933;
+  --color-text-muted: #52606d;
+  --color-primary: #2f6fed;
+  --color-primary-hover: #244fb0;
+  --color-danger: #c0392b;
+  --color-danger-bg: #fdecea;
+  --color-success: #1e824c;
+  --color-success-bg: #e8f7ee;
+  --radius: 8px;
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 16px;
+  --spacing-4: 24px;
+  --spacing-5: 32px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 var(--spacing-3);
+  color: var(--color-text);
+}
+
+a {
+  color: var(--color-primary);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Centered single-card layout, used by the login and register pages. */
+.auth-page {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-4);
+}
+
+.auth-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--spacing-5);
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+
+  label {
+    margin-top: var(--spacing-3);
+    margin-bottom: var(--spacing-1);
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+  }
+
+  input,
+  select,
+  textarea {
+    padding: var(--spacing-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font: inherit;
+  }
+
+  button[type='submit'] {
+    margin-top: var(--spacing-4);
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--color-primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+
+    &:hover:not(:disabled) {
+      background: var(--color-primary-hover);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.auth-switch {
+  margin-top: var(--spacing-3);
+  font-size: 0.9rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.field-error {
+  margin: var(--spacing-1) 0 0;
+  color: var(--color-danger);
+  font-size: 0.85rem;
+}
+
+.banner {
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius);
+  margin-bottom: var(--spacing-3);
+  font-size: 0.9rem;
+}
+
+.banner--error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.banner--success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}

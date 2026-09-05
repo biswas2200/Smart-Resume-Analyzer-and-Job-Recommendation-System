@@ -6,21 +6,27 @@ Module-level design for the **ML Service** (`ml-service/`, implemented) plus the
 
 ```
 ml-service/app/
-├── main.py                # FastAPI app, mounts analyze_router, GET /health
+├── main.py                # FastAPI app, mounts analyze_router + upload_router, GET /health
 ├── config.py               # Settings (pydantic-settings), .env-backed
 ├── models/
 │   └── schemas.py          # All Pydantic request/response models
 ├── routers/
-│   └── analyze.py          # POST /parse /match /ats-score /analyze
+│   ├── analyze.py          # POST /parse /match /ats-score /analyze
+│   └── upload.py           # POST /parse-file
 ├── services/
-│   ├── parser.py           # LLM: text -> ResumeProfile
+│   ├── parser.py           # text -> ResumeProfile; routes to local NER (default) or LLM
+│   ├── local_ner_parser.py # local NER model (yashpwr/resume-ner-bert-v2), chunking + entity clustering
 │   ├── normalizer.py       # skill string -> canonical skill
 │   ├── embeddings.py       # sentence-transformers wrapper
 │   ├── matcher.py          # embedding + cosine-similarity role ranking
 │   ├── ats_score.py        # rule-based ATS scoring
 │   ├── gap_analysis.py     # missing-skill derivation
 │   ├── explainer.py        # LLM: scores -> coaching prose
-│   └── llm_client.py       # LLMClient Protocol + GroqLLMClient
+│   ├── llm_client.py       # LLMClient Protocol + GroqLLMClient / GeminiLLMClient
+│   └── document_extraction/
+│       ├── base.py         # DocumentTextExtractor Protocol + UnsupportedDocumentTypeError
+│       ├── pdf_extractor.py# PdfTextExtractor (pdfplumber, column-aware reordering)
+│       └── registry.py     # file extension -> DocumentTextExtractor
 └── data/
     ├── skill_taxonomy.json # canonical -> [variants]
     └── role_skills.json    # [{role, skills[]}, ...] curated dataset
@@ -28,10 +34,10 @@ ml-service/app/
 
 ## 2. API contracts (implemented)
 
-All four endpoints are mounted with no path prefix (`app.include_router(analyze_router)`), so paths are exactly as shown.
+All endpoints are mounted with no path prefix (`app.include_router(analyze_router)`, `app.include_router(upload_router)`), so paths are exactly as shown.
 
 ### `POST /parse`
-Extracts a structured profile from raw resume text via the LLM.
+Extracts a structured profile from raw resume text. Runs the local NER model by default (`Settings.parser_backend == "local"`); routes through the configured LLM provider instead if `PARSER_BACKEND=llm`.
 
 ```jsonc
 // Request  — ParseRequest
@@ -47,6 +53,17 @@ Extracts a structured profile from raw resume text via the LLM.
   }
 }
 ```
+Note: on the local (default) backend, `experience[*].description` is always `""` (no NER signal for free-text descriptions — see §6), and `duration` is filled only when a nearby date-range regex match is found.
+
+### `POST /parse-file`
+Same as `POST /parse`, but takes an uploaded file instead of raw text. Dispatches to a `DocumentTextExtractor` by file extension (`document_extraction/registry.py`); currently only `.pdf` is registered.
+
+```jsonc
+// Request — multipart/form-data, field "file"
+
+// Response — ParseResponse (identical shape to POST /parse)
+```
+Returns `415` if the uploaded file's extension has no registered extractor (e.g. `.docx`, until a DOCX extractor is added).
 
 ### `POST /match`
 Ranks curated roles by similarity to a given skill list. No LLM call.
@@ -106,7 +123,8 @@ sequenceDiagram
     participant C as Client
     participant R as analyze.py (router)
     participant P as parser.py
-    participant L as llm_client.py (Groq)
+    participant NER as local_ner_parser.py
+    participant L as llm_client.py (Groq/Gemini)
     participant A as ats_score.py
     participant M as matcher.py
     participant N as normalizer.py
@@ -116,8 +134,13 @@ sequenceDiagram
 
     C->>R: POST /analyze {resume_text, top_n}
     R->>P: parse_resume(resume_text)
-    P->>L: complete(system_prompt, resume_text)
-    L-->>P: raw JSON string
+    alt parser_backend == "local" (default)
+        P->>NER: parse_resume_local(resume_text)
+        NER-->>P: ResumeProfile
+    else parser_backend == "llm" (opt-in)
+        P->>L: complete(system_prompt, resume_text)
+        L-->>P: raw JSON string
+    end
     P-->>R: ResumeProfile
     R->>A: score_resume(resume_text)
     A-->>R: AtsScoreResponse
@@ -168,9 +191,10 @@ Base `max_score` = 90.0 always; +20.0 only when keywords are supplied. This asym
 
 ## 6. Error handling & degradation (design intent)
 
-- If the Groq API call in `parser.py` fails or returns malformed JSON, `json.loads()` raises — the router currently lets this propagate as a 500; a production hardening pass should catch this and return a typed 502/503 with a clear message (tracked as a follow-up, not yet implemented).
-- `/match` and `/ats-score` have no LLM dependency and cannot fail due to Groq downtime — this is what makes NFR-3.1 (graceful degradation) achievable: `/analyze` can be adapted to catch an `explainer` failure specifically and still return `profile`, `ats_score`, `matches`, and `gaps` with `explanation` empty or a fallback string.
-- `embeddings.py`'s `_get_model()` is `lru_cache`d — the `sentence-transformers` model loads once per process (first request pays the cold-start cost; subsequent ones don't).
+- If the LLM API call in `parser.py`'s opt-in path (`PARSER_BACKEND=llm`) fails or returns malformed JSON, `json.loads()` raises — the router currently lets this propagate as a 500; a production hardening pass should catch this and return a typed 502/503 with a clear message (tracked as a follow-up, not yet implemented). This risk doesn't exist on the default local-NER path at all.
+- `/match` and `/ats-score` have no LLM dependency and cannot fail due to LLM-provider downtime; with the default `PARSER_BACKEND=local`, `/parse` and `/parse-file` don't either — this is what makes NFR-3.1 (graceful degradation) achievable: `/analyze` can be adapted to catch an `explainer` failure specifically and still return `profile`, `ats_score`, `matches`, and `gaps` with `explanation` empty or a fallback string.
+- `embeddings.py`'s `_get_model()` is `lru_cache`d — the `sentence-transformers` model loads once per process (first request pays the cold-start cost; subsequent ones don't). `local_ner_parser.py`'s `_get_ner_pipeline()` follows the same pattern for the NER model.
+- On the local parsing path, known accuracy limitations (documented in `local_ner_parser.py`) rather than hard failures: `experience[*].description` is always empty (no NER signal for free text); duration and entity clustering rely on proximity heuristics that can misattribute fields on unusual resume layouts (see `document_extraction/pdf_extractor.py`'s column-aware extraction, which mitigates the specific case of multi-column PDFs getting flattened wrong before parsing even sees the text).
 
 ## 7. Planned backend module design (once implementation starts)
 

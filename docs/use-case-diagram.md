@@ -9,7 +9,7 @@ Actors and use cases per SRS §2.3 (User Classes) and §3 (Functional Requiremen
 | **Candidate** (primary) | Job-seeking fresher or early-career professional (0–2 years). Assumed comfortable with standard web apps, not assumed to be technical. |
 | **System Administrator** | Maintains the skill taxonomy and curated job-role dataset; monitors system health. |
 | **Institution / Placement Cell** (future secondary actor) | Potential future user of a batch-analysis capability (SRS Appendix B, stretch scope) to evaluate multiple candidates against one role. |
-| **Groq LLM API** (external system actor) | Invoked by the system for two use cases only — never initiates action itself. |
+| **LLM API — Groq or Gemini** (external system actor) | Invoked unconditionally for UC6 (explanation); invoked for UC2 (parsing) only if explicitly opted into (`PARSER_BACKEND=llm`) — parsing runs on a local NER model by default. Never initiates action itself. |
 
 ## Diagram
 
@@ -18,10 +18,10 @@ flowchart LR
     Candidate((Candidate))
     Admin((System<br/>Administrator))
     Institution((Institution /<br/>Placement Cell))
-    LLM([Groq LLM API])
+    LLM([LLM API — Groq/Gemini])
 
     subgraph SYS["Intelligent Resume Analyser and Career Recommendation System"]
-        UC1["Upload resume\n[Planned]"]
+        UC1["Upload resume\n[Implemented — POST /parse-file, PDF only]"]
         UC2["Parse resume into\nstructured profile\n[Implemented — POST /parse]"]
         UC3["Normalize extracted skills\n[Implemented — normalizer.py]"]
         UC4["View ranked role\nrecommendations\n[Implemented — POST /match]"]
@@ -58,7 +58,7 @@ flowchart LR
     UC12 -.include.-> UC6
     UC11 -.include.-> UC12
 
-    UC2 --> LLM
+    UC2 -.->|opt-in only| LLM
     UC6 --> LLM
 
     Admin --> UC13
@@ -72,7 +72,7 @@ flowchart LR
 
 ### UC4/UC5/UC6/UC8/UC12 — "Analyze my resume" (the core, implemented flow)
 - **Actor:** Candidate
-- **Precondition:** Candidate has resume text available (upload/extraction handled upstream by the planned backend; the ML service itself accepts raw text today).
+- **Precondition:** Candidate has resume text available, either directly (`POST /analyze`) or via a PDF upload (`POST /parse-file`, which extracts text — column-aware, so multi-column layouts aren't scrambled — then runs the same pipeline). Non-PDF formats and any richer upload UX remain planned, dependent on the backend/frontend.
 - **Main flow:** Candidate's resume text → `POST /analyze` → system returns structured profile, ATS score with breakdown, ranked role matches with matched/missing skills, gap list, and a plain-language explanation — in one response.
 - **Postcondition:** Candidate sees results; (planned) backend persists a `Recommendation` row per matched role.
 - **Related requirements:** FR-3.1–FR-3.4, FR-4.1–FR-4.3, FR-5.1–FR-5.3, FR-6.1, FR-9.1–FR-9.4.

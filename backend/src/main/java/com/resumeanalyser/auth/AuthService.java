@@ -10,6 +10,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,17 +27,20 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
 
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
-            JwtService jwtService
+            JwtService jwtService,
+            UserDetailsService userDetailsService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
     }
 
     /**
@@ -81,16 +85,18 @@ public class AuthService {
 
     /**
      * Builds the JWT + user-info response shared by both register and login.
+     * <p>
+     * Delegates the User-to-UserDetails adaptation to {@link UserDetailsService}
+     * rather than re-deriving it here, so there's exactly one place (its
+     * implementation) that decides what a user's Spring Security authorities look
+     * like -- keeping this in sync with {@link JwtAuthenticationFilter}, which
+     * authenticates every later request the same way.
      *
      * @param user the account to issue a token for
      * @return the token, its expiry, and a public-safe view of the account
      */
     private AuthResponse issueToken(User user) {
-        UserDetails userDetails = org.springframework.security.core.userdetails.User
-                .withUsername(user.getEmail())
-                .password(user.getPasswordHash())
-                .authorities("ROLE_" + user.getRole().name())
-                .build();
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
 
         String token = jwtService.generateToken(userDetails);
         UserDto userDto = new UserDto(user.getId(), user.getEmail(), user.getRole(), user.getCreatedAt());

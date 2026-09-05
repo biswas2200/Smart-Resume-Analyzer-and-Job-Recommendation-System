@@ -54,10 +54,10 @@ class ResumeProfile(BaseModel):
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `name` | `str` | `""` | Candidate's full name as extracted by the LLM parser (`parser.py`). |
+| `name` | `str` | `""` | Candidate's full name as extracted by `parser.py` — the local NER model by default, or the LLM if `PARSER_BACKEND=llm`. |
 | `email` | `str` | `""` | Contact email extracted from the resume. Note this is independent of `ats_score.py`'s own email regex check — the two are computed by different modules for different purposes. |
 | `phone` | `str` | `""` | Contact phone number, as written. |
-| `skills` | `list[str]` | `[]` | Raw, LLM-extracted skill strings — **not yet normalized**. Normalization happens downstream in `normalizer.py` before matching. |
+| `skills` | `list[str]` | `[]` | Raw, extracted skill strings — **not yet normalized**. Normalization happens downstream in `normalizer.py` before matching. |
 | `experience` | `list[ExperienceEntry]` | `[]` | Work history entries, in the order extracted. |
 | `education` | `list[EducationEntry]` | `[]` | Education entries, in the order extracted. |
 

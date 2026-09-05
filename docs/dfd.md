@@ -8,15 +8,15 @@ Standard Gane–Sarson style: rounded rectangles are processes, open-ended recta
 flowchart LR
     Candidate["Candidate\n(external entity)"]
     Admin["System Administrator\n(external entity)"]
-    LLM["Groq LLM API\n(external entity)"]
+    LLM["LLM API — Groq or Gemini\n(external entity)"]
 
     SYS(("0\nIntelligent Resume Analyser\nand Career Recommendation System"))
 
-    Candidate -->|resume text / JD text / feedback| SYS
+    Candidate -->|resume text, or PDF file / JD text / feedback| SYS
     SYS -->|parsed profile, match scores,\nskill gaps, ATS score, explanation| Candidate
     Admin -->|taxonomy updates, role dataset updates| SYS
-    SYS -->|extraction prompt, explanation prompt| LLM
-    LLM -->|structured JSON / coaching text| SYS
+    SYS -->|explanation prompt always;\nextraction prompt only if opted in| LLM
+    LLM -->|coaching text; structured JSON\nonly on the opt-in path| SYS
 ```
 
 ## Level 1 — Decomposition of process 0 (the analyze pipeline)
@@ -26,9 +26,10 @@ This is the actual data flow inside `POST /analyze`, one bubble per service modu
 ```mermaid
 flowchart TB
     Candidate["Candidate"]
-    LLM["Groq LLM API"]
+    LLM["LLM API — Groq or Gemini"]
 
-    P1(("1.0\nParse Resume\n(parser.py)"))
+    P0(("0.5\nExtract Text from\nUploaded PDF\n(upload.py, document_extraction/)"))
+    P1(("1.0\nParse Resume\n(parser.py -> local_ner_parser.py\nby default; LLM if opted in)"))
     P2(("2.0\nNormalize Skills\n(normalizer.py)"))
     P3(("3.0\nEmbed & Match Roles\n(matcher.py, embeddings.py)"))
     P4(("4.0\nScore ATS\nCompatibility\n(ats_score.py)"))
@@ -38,10 +39,12 @@ flowchart TB
     D1[("D1: Skill Taxonomy\nskill_taxonomy.json")]
     D2[("D2: Curated Role Dataset\nrole_skills.json")]
 
+    Candidate -->|PDF file| P0
+    P0 -->|resume_text\n(column-aware reading order)| P1
     Candidate -->|resume_text| P1
     Candidate -->|resume_text, target_keywords| P4
-    P1 -->|extraction prompt| LLM
-    LLM -->|raw JSON| P1
+    P1 -.->|extraction prompt, opt-in only| LLM
+    LLM -.->|raw JSON, opt-in only| P1
     P1 -->|ResumeProfile\n(name, contact, skills[],\nexperience[], education[])| P2
     P2 <-->|variant -> canonical lookup| D1
     P2 -->|normalized skills[]| P3

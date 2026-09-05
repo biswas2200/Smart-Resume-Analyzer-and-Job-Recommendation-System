@@ -81,9 +81,26 @@ classDiagram
         -str _model
         +complete(system_prompt, user_prompt) str
     }
+    class GeminiLLMClient {
+        -Client _client
+        -str _model
+        +complete(system_prompt, user_prompt) str
+    }
+    class DocumentTextExtractor {
+        <<Protocol>>
+        +extract(file_bytes) str
+    }
+    class PdfTextExtractor {
+        <<pdf_extractor.py>>
+        +extract(file_bytes) str
+    }
     class ResumeParser {
         <<parser.py>>
         +parse_resume(resume_text, client) ResumeProfile
+    }
+    class LocalNerResumeParser {
+        <<local_ner_parser.py>>
+        +parse_resume_local(resume_text, ner_pipeline) ResumeProfile
     }
     class SkillNormalizer {
         <<normalizer.py>>
@@ -113,11 +130,15 @@ classDiagram
     }
 
     GroqLLMClient ..|> LLMClient
-    ResumeParser --> LLMClient : uses
+    GeminiLLMClient ..|> LLMClient
+    PdfTextExtractor ..|> DocumentTextExtractor
+    ResumeParser --> LocalNerResumeParser : uses (default)
+    ResumeParser --> LLMClient : uses (opt-in, PARSER_BACKEND=llm)
     ResultExplainer --> LLMClient : uses
     RoleMatcher --> SkillNormalizer : uses
     RoleMatcher --> EmbeddingService : uses
     ResumeParser --> ResumeProfile : returns
+    LocalNerResumeParser --> ResumeProfile : returns
     RoleMatcher --> RoleMatch : returns
     AtsScorer --> AtsScoreResponse : returns
     GapAnalyzer --> GapAnalysis : returns

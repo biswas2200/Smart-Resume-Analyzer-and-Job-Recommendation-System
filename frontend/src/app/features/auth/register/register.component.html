@@ -1,0 +1,91 @@
+<div class="auth-page">
+  <form class="auth-card" [formGroup]="form" (submit)="submit()" novalidate>
+    <h1>Create account</h1>
+
+    @if (errorMessage()) {
+      <p class="banner banner--error" role="alert" data-testid="register-error">
+        {{ errorMessage() }}
+      </p>
+    }
+
+    <label for="register-email">Email</label>
+    <input
+      id="register-email"
+      type="email"
+      formControlName="email"
+      data-testid="email-input"
+      autocomplete="email"
+      [attr.aria-invalid]="form.controls.email.invalid && form.controls.email.touched ? true : null"
+      [attr.aria-describedby]="
+        form.controls.email.invalid && form.controls.email.touched ? 'register-email-error' : null
+      "
+    />
+    @if (form.controls.email.invalid && form.controls.email.touched) {
+      <p class="field-error" id="register-email-error" data-testid="email-error">
+        @if (form.controls.email.errors?.['required']) {
+          Email is required.
+        } @else {
+          Enter a valid email address.
+        }
+      </p>
+    }
+
+    <label for="register-password">Password</label>
+    <input
+      id="register-password"
+      type="password"
+      formControlName="password"
+      data-testid="password-input"
+      autocomplete="new-password"
+      [attr.aria-invalid]="
+        form.controls.password.invalid && form.controls.password.touched ? true : null
+      "
+      [attr.aria-describedby]="
+        form.controls.password.invalid && form.controls.password.touched
+          ? 'register-password-error'
+          : null
+      "
+    />
+    @if (form.controls.password.invalid && form.controls.password.touched) {
+      <p class="field-error" id="register-password-error" data-testid="password-error">
+        @if (form.controls.password.errors?.['required']) {
+          Password is required.
+        } @else {
+          Password must be at least 8 characters.
+        }
+      </p>
+    }
+
+    <label for="register-confirm-password">Confirm password</label>
+    <input
+      id="register-confirm-password"
+      type="password"
+      formControlName="confirmPassword"
+      data-testid="confirm-password-input"
+      autocomplete="new-password"
+      [attr.aria-invalid]="
+        form.errors?.['passwordMismatch'] && form.controls.confirmPassword.touched ? true : null
+      "
+      [attr.aria-describedby]="
+        form.errors?.['passwordMismatch'] && form.controls.confirmPassword.touched
+          ? 'register-confirm-password-error'
+          : null
+      "
+    />
+    @if (form.errors?.['passwordMismatch'] && form.controls.confirmPassword.touched) {
+      <p
+        class="field-error"
+        id="register-confirm-password-error"
+        data-testid="confirm-password-error"
+      >
+        Passwords do not match.
+      </p>
+    }
+
+    <button type="submit" [disabled]="isSubmitting()" data-testid="register-submit">
+      {{ isSubmitting() ? 'Creating account…' : 'Create account' }}
+    </button>
+
+    <p class="auth-switch">Already have an account? <a routerLink="/login">Sign in</a></p>
+  </form>
+</div>

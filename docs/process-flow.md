@@ -6,10 +6,13 @@ Activity-diagram view of the system's three main end-to-end flows: the core anal
 
 ```mermaid
 flowchart TD
-    Start([Candidate submits resume text]) --> Val{Valid input?}
-    Val -- No --> ErrIn[Return 422 — validation error]
-    Val -- Yes --> Parse[Call LLM: extract structured profile]
-    Parse --> ParseOK{Parse succeeded\nand JSON valid?}
+    Start([Candidate submits resume text\nor uploads a PDF]) --> Val{Valid input?}
+    Val -- No --> ErrIn[Return 422/415 — validation\nor unsupported file type]
+    Val -- Yes --> Extract{Uploaded a file?}
+    Extract -- Yes --> ExtractText[Extract text, column-aware\n(document_extraction/pdf_extractor.py)]
+    Extract -- No --> Parse
+    ExtractText --> Parse[Parse: local NER model by default,\nLLM only if PARSER_BACKEND=llm]
+    Parse --> ParseOK{Parse succeeded?}
     ParseOK -- No --> ErrParse["Propagate error\n(hardening: fall back gracefully — not yet implemented)"]
     ParseOK -- Yes --> Norm[Normalize extracted skills\nagainst canonical taxonomy]
     Norm --> ATS[Score ATS compatibility\n— runs independently, no LLM]
@@ -28,11 +31,13 @@ flowchart TD
 
 ## 2. Planned flow — Resume upload → dashboard (backend + frontend, not yet built)
 
+Text extraction itself (the `X` step below) is already implemented for PDF in `ml-service` (`POST /parse-file`, column-aware via `document_extraction/`); what's still planned is the backend wrapping it with format/size validation, versioning, persistence, and the frontend dashboard.
+
 ```mermaid
 flowchart TD
     U([Candidate uploads PDF/DOCX]) --> V{Format PDF/DOCX\nand size ≤ 5 MB?}
     V -- No --> E1[Reject with clear error — FR-1.3]
-    V -- Yes --> X[Extract raw text from file]
+    V -- Yes --> X["Extract raw text from file\n(implemented for PDF — ml-service POST /parse-file;\nDOCX not yet supported)"]
     X --> S[Store as new timestamped\nResume version — FR-1.5]
     S --> Call[Call ML Service POST /analyze]
     Call --> Persist[Persist ParsedProfile and\nRecommendation rows]
