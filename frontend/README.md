@@ -8,15 +8,9 @@ etc.) so every file's role is clear from its name, per this repo's naming conven
 
 ## Status
 
-The real backend (`backend/`) currently only has the `auth` module wired up
-(`POST /auth/register`, `POST /auth/login`). The `resume`, `recommendation`, and `feedback`
-modules have entities/DTOs but no controllers yet (see [docs/lld.md §7](../docs/lld.md)). To
-keep this frontend fully testable and usable today, every feature built against one of those
-not-yet-implemented endpoints is served by an in-memory mock implementation, gated by
-`environment.useMockApiForUnimplementedFeatures` (`src/environments/`). Login/register always
-call the real backend. Flip that flag to `false` once the corresponding backend endpoint exists
-— each service (`ResumeService`, `RecommendationService`, `FeedbackService`) already has the
-real `HttpClient` call written and tested alongside its mock path.
+Every screen is wired to the real backend (`backend/`): auth, resume upload
+(`ResumeService`), the recommendation dashboard (`RecommendationService`), and feedback
+(`FeedbackService`) all call it directly — there's no mock API layer anymore.
 
 ## Architecture
 

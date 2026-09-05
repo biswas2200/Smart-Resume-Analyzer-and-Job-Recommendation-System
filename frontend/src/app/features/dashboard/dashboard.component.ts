@@ -8,8 +8,7 @@ import { DashboardData } from './models/dashboard.model';
 /**
  * Recommendation dashboard: the candidate's ATS score breakdown, ranked role matches with
  * their matched/missing skills, a coaching explanation, and a helpful/not-helpful control per
- * recommendation (FR-10.1) — served today by {@link RecommendationService} and
- * {@link FeedbackService}'s mock implementations.
+ * recommendation (FR-10.1) — served by {@link RecommendationService} and {@link FeedbackService}.
  */
 @Component({
   selector: 'app-dashboard',

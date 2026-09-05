@@ -3,7 +3,6 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { ResumeService } from './resume.service';
-import { AuthService } from '../../../core/services/auth.service';
 import { environment } from '../../../../environments/environment';
 import { ParsedProfile, Resume } from '../models/resume.model';
 
@@ -14,17 +13,10 @@ function makeFile(name: string, sizeBytes: number, type: string): File {
 describe('ResumeService', () => {
   let service: ResumeService;
   let httpMock: HttpTestingController;
-  let authServiceSpy: { currentUser: () => { id: string; email: string } | null };
 
   beforeEach(() => {
-    authServiceSpy = { currentUser: () => ({ id: 'user-1', email: 'jane@example.com' }) };
-
     TestBed.configureTestingModule({
-      providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        { provide: AuthService, useValue: authServiceSpy },
-      ],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     service = TestBed.inject(ResumeService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -58,79 +50,54 @@ describe('ResumeService', () => {
     });
   });
 
-  describe('when using the mock API (environment.useMockApiForUnimplementedFeatures = true)', () => {
-    it('uploads a resume and assigns version 1 to the first upload for a user', () => {
-      const file = makeFile('resume.pdf', 1024, 'application/pdf');
-      let uploaded!: Resume;
+  it('uploads via a multipart POST to /resumes', () => {
+    const file = makeFile('resume.pdf', 1024, 'application/pdf');
+    const fakeResume: Resume = {
+      id: 'resume-1',
+      userId: 'user-1',
+      fileRef: 'data/resumes/user-1/1-resume.pdf',
+      version: 1,
+      uploadedAt: '2026-01-01T00:00:00Z',
+    };
+    let uploaded: Resume | undefined;
 
-      service.upload(file).subscribe((resume) => (uploaded = resume));
+    service.upload(file).subscribe((resume) => (uploaded = resume));
 
-      expect(uploaded.version).toBe(1);
-      expect(uploaded.userId).toBe('user-1');
-      expect(uploaded.fileRef).toContain('resume.pdf');
-    });
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/resumes`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body instanceof FormData).toBe(true);
+    req.flush(fakeResume);
 
-    it('increments the version on each subsequent upload', () => {
-      const first = makeFile('resume-v1.pdf', 1024, 'application/pdf');
-      const second = makeFile('resume-v2.pdf', 1024, 'application/pdf');
-      let secondUpload!: Resume;
-
-      service.upload(first).subscribe();
-      service.upload(second).subscribe((resume) => (secondUpload = resume));
-
-      expect(secondUpload.version).toBe(2);
-    });
-
-    it('lists previously uploaded versions in ascending version order', () => {
-      const first = makeFile('resume-v1.pdf', 1024, 'application/pdf');
-      const second = makeFile('resume-v2.pdf', 1024, 'application/pdf');
-      let versions!: Resume[];
-
-      service.upload(first).subscribe();
-      service.upload(second).subscribe();
-      service.listVersions().subscribe((v) => (versions = v));
-
-      expect(versions.map((v) => v.version)).toEqual([1, 2]);
-    });
-
-    it('returns a fabricated parsed profile for an uploaded resume', () => {
-      const file = makeFile('resume.pdf', 1024, 'application/pdf');
-      let uploaded!: Resume;
-      let profile!: ParsedProfile;
-
-      service.upload(file).subscribe((resume) => (uploaded = resume));
-      service.getParsedProfile(uploaded.id).subscribe((p) => (profile = p));
-
-      expect(profile.resumeId).toBe(uploaded.id);
-      expect(profile.skills.length).toBeGreaterThan(0);
-    });
+    expect(uploaded).toEqual(fakeResume);
   });
 
-  describe('when the mock API is disabled', () => {
-    const originalFlag = environment.useMockApiForUnimplementedFeatures;
+  it('lists versions via a GET to /resumes', () => {
+    service.listVersions().subscribe();
 
-    afterEach(() => {
-      environment.useMockApiForUnimplementedFeatures = originalFlag;
-    });
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/resumes`);
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
 
-    it('uploads via a real multipart POST to /resumes', () => {
-      environment.useMockApiForUnimplementedFeatures = false;
-      const file = makeFile('resume.pdf', 1024, 'application/pdf');
+  it('fetches a parsed profile via a GET to /resumes/{id}/profile', () => {
+    const fakeProfile: ParsedProfile = {
+      id: 'profile-1',
+      resumeId: 'resume-1',
+      name: 'Jane Doe',
+      email: 'jane@example.com',
+      phone: '',
+      skills: ['TypeScript'],
+      experience: [],
+      education: [],
+    };
+    let profile: ParsedProfile | undefined;
 
-      service.upload(file).subscribe();
+    service.getParsedProfile('resume-1').subscribe((p) => (profile = p));
 
-      const req = httpMock.expectOne(`${environment.apiBaseUrl}/resumes`);
-      expect(req.request.method).toBe('POST');
-      expect(req.request.body instanceof FormData).toBe(true);
-    });
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/resumes/resume-1/profile`);
+    expect(req.request.method).toBe('GET');
+    req.flush(fakeProfile);
 
-    it('lists versions via a real GET to /resumes', () => {
-      environment.useMockApiForUnimplementedFeatures = false;
-
-      service.listVersions().subscribe();
-
-      const req = httpMock.expectOne(`${environment.apiBaseUrl}/resumes`);
-      expect(req.request.method).toBe('GET');
-    });
+    expect(profile).toEqual(fakeProfile);
   });
 });

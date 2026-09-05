@@ -1,6 +1,6 @@
 # Low-Level Design (LLD)
 
-Module-level design for the **ML Service** (`ml-service/`, implemented) plus the planned Backend API surface it will sit behind. This is the most implementation-grounded document in the set — every schema and function signature below matches the current code in `ml-service/app/`.
+Module-level design for the **ML Service** (`ml-service/`, implemented) plus the Backend API surface it sits behind (`backend/`, also implemented — see §7.3). This is the most implementation-grounded document in the set — every schema and function signature below matches the current code in `ml-service/app/` and `backend/src/main/java/`.
 
 ## 1. Module map
 
@@ -12,7 +12,7 @@ ml-service/app/
 │   └── schemas.py          # All Pydantic request/response models
 ├── routers/
 │   ├── analyze.py          # POST /parse /match /ats-score /analyze
-│   └── upload.py           # POST /parse-file
+│   └── upload.py           # POST /parse-file /analyze-file
 ├── services/
 │   ├── parser.py           # text -> ResumeProfile; routes to local NER (default) or LLM
 │   ├── local_ner_parser.py # local NER model (yashpwr/resume-ner-bert-v2), chunking + entity clustering
@@ -236,7 +236,19 @@ Unlike the rest of the backend, `com.resumeanalyser.auth` has real code today (`
 
 Tokens are HS256, signed with `app.jwt.secret` (env `JWT_SECRET`), expiring after `app.jwt.expiration-ms` (env `JWT_EXPIRATION_MS`, default 24h — NFR-2.1). The dev-only default secret in `application.yml` must be overridden in any real deployment (NFR-2.4).
 
-**RBAC**: `account.User` carries a `role` (`UserRole`: `USER` | `PREMIUM_USER` | `ADMIN`, see [Entities & Fields §2.1](entities-and-fields.md)), and `SecurityConfig` has `@EnableMethodSecurity` on. Per the module-boundary rule in §7.1, `SecurityConfig` stays the single place that decides *whether a request is authenticated at all* — it does not, and should not, grow a per-endpoint `authorizeHttpRequests()` list spanning every module. Which role a given endpoint requires is that endpoint's own module's concern, declared with `@PreAuthorize("hasRole('ADMIN')")` (etc.) directly on the controller method that needs it, the same way each module owns its own exceptions. No module has such an endpoint yet — `resume`, `recommendation`, `feedback`, `skillvector` are still entity+dto only.
+**RBAC**: `account.User` carries a `role` (`UserRole`: `USER` | `PREMIUM_USER` | `ADMIN`, see [Entities & Fields §2.1](entities-and-fields.md)), and `SecurityConfig` has `@EnableMethodSecurity` on. Per the module-boundary rule in §7.1, `SecurityConfig` stays the single place that decides *whether a request is authenticated at all* — it does not, and should not, grow a per-endpoint `authorizeHttpRequests()` list spanning every module. Which role a given endpoint requires is that endpoint's own module's concern, declared with `@PreAuthorize("hasRole('ADMIN')")` (etc.) directly on the controller method that needs it, the same way each module owns its own exceptions. No module has such an endpoint yet. `SecurityConfig` also registers the app's CORS policy (`app.cors.allowed-origins`), needed once a browser frontend on a different origin started calling this API.
+
+### 7.3 `resume`, `recommendation`, `feedback`, `client` modules — implemented
+
+These four modules are now real code too, closing the three-service loop end to end. A few decisions here refine the plan above rather than following it exactly:
+
+- **One ML call per upload, not one per module.** `resume.ResumeService.upload()` calls the ML service's `POST /analyze-file` (a file-upload counterpart to `/analyze`, added to `ml-service/app/routers/upload.py`) exactly once, getting the parsed profile, ATS score, role matches, and explanation together. It persists `Resume`+`ParsedProfile` itself, then hands the matches to `recommendation.RecommendationService.persistFromAnalysis()` to upsert `Role` rows and insert `Recommendation` rows — so `recommendation` still owns writing its own entities, without a second, redundant ML round trip re-extracting the same file.
+- **`ParsedProfile` gained `atsScore`/`atsMaxScore`/`atsChecks`/`explanation` columns**, and **`Recommendation` gained a `resume` foreign key plus `matchedSkills`/`missingSkills`** — beyond [database-schema.md](database-schema.md)'s indicative DDL, which had no entity for ATS/explanation output and no way to tell which analysis run produced a given recommendation. Without these, `GET /recommendations/dashboard` (the dashboard read endpoint sketched in §7 above) would have to re-call the ML service on every page load instead of reading what upload already computed.
+- **`client.MlServiceClient`** wraps only `POST /analyze-file` (via a `RestClient`, `app.ml-service.base-url`) — the plan's `/parse`/`/match`/`/ats-score` calls aren't separately wrapped, since `/analyze-file` alone covers what the backend needs today.
+- **Resume files live on local disk** (`resume.ResumeStorageService`, `app.storage.resume-dir`) rather than real object storage — `Resume.fileRef` stores a filesystem path instead of an S3/GCS key, swappable later without touching any caller.
+- **The skill-vector EMA update job (FR-7.1–7.4) is still not implemented.** `feedback.Feedback.skillVectorVersion` is always null; feedback rows are persisted (FR-10.1) but nothing recomputes `SkillVector` weights from them yet.
+
+See `backend/README.md` for the concrete endpoint list and how to run all three services together.
 
 ## Related documents
 

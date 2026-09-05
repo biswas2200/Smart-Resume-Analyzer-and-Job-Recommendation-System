@@ -23,6 +23,9 @@ target/
 .mvn/
 hs_err_pid*
 
+# Local resume file storage (app.storage.resume-dir default, backend/README.md)
+backend/data/
+
 # Node / frontend
 node_modules/
 dist/
