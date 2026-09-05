@@ -1,10 +1,14 @@
 package com.resumeanalyser.recommendation;
 
 import com.resumeanalyser.account.User;
+import com.resumeanalyser.resume.Resume;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -34,9 +38,24 @@ public class Recommendation {
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
+    /** The resume version whose analysis run produced this recommendation. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "resume_id", nullable = false)
+    private Resume resume;
+
     /** Cosine similarity between the candidate and the role, in the range [0.0, 1.0]. */
     @Column(name = "match_score", nullable = false)
     private double matchScore;
+
+    /** Role-required skills the candidate's profile already has. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "matched_skills", nullable = false)
+    private List<String> matchedSkills;
+
+    /** Role-required skills the candidate's profile is missing. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "missing_skills", nullable = false)
+    private List<String> missingSkills;
 
     /** When this recommendation was generated. */
     @Column(name = "created_at", nullable = false, updatable = false)
