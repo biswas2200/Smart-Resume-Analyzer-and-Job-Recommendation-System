@@ -1,0 +1,52 @@
+site_name: Intelligent Resume Analyser — Documentation
+site_description: >-
+  Architecture, design, and data-model documentation for the Intelligent
+  Resume Analyser and Career Recommendation System.
+docs_dir: .
+site_dir: _site
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.top
+    - content.code.copy
+    - toc.integrate
+
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+
+nav:
+  - Home: index.md
+  - Abstraction Overview: abstraction-overview.md
+  - Architecture: architecture.md
+  - HLD: hld.md
+  - LLD: lld.md
+  - Use Case Diagram: use-case-diagram.md
+  - DFD: dfd.md
+  - Process Flow: process-flow.md
+  - UML Diagrams: uml-diagrams.md
+  - Entity Diagram: entity-diagram.md
+  - Database Schema: database-schema.md
+  - Class Diagram: class-diagram.md
+  - Entities & Fields: entities-and-fields.md
+  - Tech Stack: tech-stack.md

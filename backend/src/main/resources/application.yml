@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: resume-analyser-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/resume_analyser}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+server:
+  port: ${PORT:8080}
+
+app:
+  jwt:
+    # NFR-2.4: production must set JWT_SECRET; this default is dev-only.
+    secret: ${JWT_SECRET:dev-only-secret-change-me-32-bytes-minimum-please}
+    # NFR-2.1: JWT sessions <= 24h.
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}

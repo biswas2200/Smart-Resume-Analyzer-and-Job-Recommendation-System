@@ -1,0 +1,88 @@
+<div class="page">
+  <h1>Dashboard</h1>
+
+  @if (isLoading()) {
+    <p>Loading…</p>
+  } @else if (data(); as dashboard) {
+    <section class="card" data-testid="ats-score">
+      <h2>ATS compatibility</h2>
+      <p class="score">{{ dashboard.atsScore.score }} / {{ dashboard.atsScore.max_score }}</p>
+      <ul class="check-list">
+        @for (check of dashboard.atsScore.checks; track check.name) {
+          <li
+            data-testid="ats-check"
+            [class.check--passed]="check.passed"
+            [class.check--failed]="!check.passed"
+          >
+            <strong>{{ check.name }}</strong> — {{ check.detail }}
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="card" data-testid="explanation">
+      <h2>Coaching notes</h2>
+      <p>{{ dashboard.explanation }}</p>
+    </section>
+
+    <section>
+      <h2>Recommended roles</h2>
+      @for (recommendation of dashboard.recommendations; track recommendation.recommendationId) {
+        <article class="card recommendation-card" data-testid="recommendation-card">
+          <header>
+            <h3>{{ recommendation.role.title }}</h3>
+            <span class="match-score">{{ asPercent(recommendation.matchScore) }}% match</span>
+          </header>
+          <p>{{ recommendation.role.description }}</p>
+
+          @if (recommendation.matchedSkills.length) {
+            <p class="skill-group">
+              <strong>Matched:</strong>
+              @for (skill of recommendation.matchedSkills; track skill) {
+                <span class="skill skill--matched">{{ skill }}</span>
+              }
+            </p>
+          }
+
+          @if (recommendation.missingSkills.length) {
+            <p class="skill-group">
+              <strong>Missing:</strong>
+              @for (skill of recommendation.missingSkills; track skill) {
+                <span class="skill skill--missing">{{ skill }}</span>
+              }
+            </p>
+          }
+
+          <div class="feedback-controls">
+            <span>Was this recommendation helpful?</span>
+            <button
+              type="button"
+              data-testid="feedback-helpful"
+              [class.selected]="
+                feedbackByRecommendationId()[recommendation.recommendationId] === true
+              "
+              (click)="rateRecommendation(recommendation.recommendationId, true)"
+            >
+              Helpful
+            </button>
+            <button
+              type="button"
+              data-testid="feedback-not-helpful"
+              [class.selected]="
+                feedbackByRecommendationId()[recommendation.recommendationId] === false
+              "
+              (click)="rateRecommendation(recommendation.recommendationId, false)"
+            >
+              Not helpful
+            </button>
+          </div>
+        </article>
+      }
+    </section>
+  } @else {
+    <div class="card" data-testid="upload-prompt">
+      <p>Upload a resume to see your ATS score and personalized role recommendations.</p>
+      <a routerLink="/resume/upload">Upload your resume</a>
+    </div>
+  }
+</div>

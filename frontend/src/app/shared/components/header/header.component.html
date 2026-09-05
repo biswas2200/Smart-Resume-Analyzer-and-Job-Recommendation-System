@@ -1,0 +1,17 @@
+<header class="app-header">
+  <a class="brand" routerLink="/">Smart Resume Analyser</a>
+
+  <nav class="nav-links" aria-label="Main navigation">
+    @if (authService.isAuthenticated()) {
+      <a routerLink="/dashboard" data-testid="dashboard-link">Dashboard</a>
+      <a routerLink="/resume/upload" data-testid="upload-link">Upload Resume</a>
+      <span class="current-user" data-testid="current-user-email">{{
+        authService.currentUser()?.email
+      }}</span>
+      <button type="button" (click)="logout()" data-testid="logout-button">Log out</button>
+    } @else {
+      <a routerLink="/login" data-testid="login-link">Sign in</a>
+      <a routerLink="/register" data-testid="register-link">Create account</a>
+    }
+  </nav>
+</header>
