@@ -1,14 +1,13 @@
 /**
- * Public-facing view of a feedback entry. Mirrors the backend's planned
+ * Public-facing view of a feedback entry. Mirrors the backend's
  * `feedback.dto.FeedbackDto` field-for-field (see
- * backend/src/main/java/com/resumeanalyser/feedback/dto/FeedbackDto.java) — that module has
- * no controller yet, so this is served by the mock API (see feedback.service.ts) until it does.
+ * backend/src/main/java/com/resumeanalyser/feedback/dto/FeedbackDto.java).
  */
 export interface Feedback {
   id: string;
   recommendationId: string;
 
-  /** Null in the mock, since there is no real skill-vector concept on the frontend yet. */
+  /** Null until the EMA skill-vector update job (FR-7) is implemented. */
   skillVectorVersionId: string | null;
 
   helpful: boolean;

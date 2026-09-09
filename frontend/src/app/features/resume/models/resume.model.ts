@@ -1,9 +1,7 @@
 /**
  * Public-facing view of an uploaded resume version.
- * Mirrors the backend's planned `resume.dto.ResumeDto` field-for-field (see
- * backend/src/main/java/com/resumeanalyser/resume/dto/ResumeDto.java) — that module has no
- * controller yet, so today this is served by the mock API (see resume.service.ts), but the
- * shape is the real, already-written DTO so wiring up the real endpoint later is a no-op here.
+ * Mirrors the backend's `resume.dto.ResumeDto` field-for-field (see
+ * backend/src/main/java/com/resumeanalyser/resume/dto/ResumeDto.java).
  */
 export interface Resume {
   id: string;

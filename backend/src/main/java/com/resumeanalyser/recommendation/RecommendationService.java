@@ -1,0 +1,111 @@
+package com.resumeanalyser.recommendation;
+
+import com.resumeanalyser.account.User;
+import com.resumeanalyser.client.dto.RoleMatchDto;
+import com.resumeanalyser.common.ResourceNotFoundException;
+import com.resumeanalyser.recommendation.dto.DashboardResponse;
+import com.resumeanalyser.resume.ParsedProfile;
+import com.resumeanalyser.resume.ParsedProfileRepository;
+import com.resumeanalyser.resume.Resume;
+import com.resumeanalyser.resume.ResumeRepository;
+import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Owns everything role-recommendation related: turning one resume analysis
+ * run's ML role matches into persisted {@link Recommendation} rows (per
+ * docs/lld.md §7: "persists Recommendation rows"), and assembling the
+ * dashboard's composite read view from what's already been persisted.
+ */
+@Service
+public class RecommendationService {
+
+    private final RoleRepository roleRepository;
+    private final RecommendationRepository recommendationRepository;
+    private final ResumeRepository resumeRepository;
+    private final ParsedProfileRepository parsedProfileRepository;
+
+    public RecommendationService(
+            RoleRepository roleRepository,
+            RecommendationRepository recommendationRepository,
+            ResumeRepository resumeRepository,
+            ParsedProfileRepository parsedProfileRepository
+    ) {
+        this.roleRepository = roleRepository;
+        this.recommendationRepository = recommendationRepository;
+        this.resumeRepository = resumeRepository;
+        this.parsedProfileRepository = parsedProfileRepository;
+    }
+
+    /**
+     * Persists one {@link Recommendation} row per role match from a resume's
+     * analysis run (called by {@code ResumeService} right after it persists the
+     * resume itself, reusing the same ML response rather than calling the ML
+     * service a second time). Roles are upserted by title -- the first time a
+     * given role is matched anywhere, a new {@link Role} row is created for it;
+     * every match after that reuses the existing row.
+     *
+     * @param user    the account this analysis was run for
+     * @param resume  the resume version that was analyzed
+     * @param matches the ML service's ranked role matches for this analysis run
+     */
+    public void persistFromAnalysis(User user, Resume resume, List<RoleMatchDto> matches) {
+        for (RoleMatchDto match : matches) {
+            Role role = roleRepository.findByTitle(match.role())
+                    .orElseGet(() -> {
+                        Role newRole = new Role();
+                        newRole.setTitle(match.role());
+                        return roleRepository.save(newRole);
+                    });
+
+            Recommendation recommendation = new Recommendation();
+            recommendation.setUser(user);
+            recommendation.setRole(role);
+            recommendation.setResume(resume);
+            recommendation.setMatchScore(match.score());
+            recommendation.setMatchedSkills(match.matchedSkills());
+            recommendation.setMissingSkills(match.missingSkills());
+            recommendationRepository.save(recommendation);
+        }
+    }
+
+    /**
+     * Assembles the dashboard view for a user's most recently uploaded resume.
+     *
+     * @param user the signed-in account
+     * @return the dashboard data, or empty if the user hasn't uploaded a resume yet
+     */
+    public Optional<DashboardResponse> getDashboard(User user) {
+        Optional<Resume> latestResume = resumeRepository.findTopByUserOrderByVersionDesc(user);
+        if (latestResume.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Resume resume = latestResume.get();
+        ParsedProfile profile = parsedProfileRepository.findByResume(resume)
+                .orElseThrow(() -> new ResourceNotFoundException("No parsed profile for resume: " + resume.getId()));
+
+        List<Recommendation> recommendations = recommendationRepository.findByResumeOrderByMatchScoreDesc(resume);
+
+        DashboardResponse.AtsScore atsScore = new DashboardResponse.AtsScore(
+                profile.getAtsScore(),
+                profile.getAtsMaxScore(),
+                profile.getAtsChecks().stream()
+                        .map(c -> new DashboardResponse.AtsCheck(c.name(), c.passed(), c.detail()))
+                        .toList());
+
+        List<DashboardResponse.RoleRecommendation> roleRecommendations = recommendations.stream()
+                .map(r -> new DashboardResponse.RoleRecommendation(
+                        r.getId(),
+                        new DashboardResponse.RoleSummary(
+                                r.getRole().getId(), r.getRole().getTitle(), r.getRole().getDescription()),
+                        r.getMatchScore(),
+                        r.getCreatedAt(),
+                        r.getMatchedSkills(),
+                        r.getMissingSkills()))
+                .toList();
+
+        return Optional.of(new DashboardResponse(atsScore, roleRecommendations, profile.getExplanation()));
+    }
+}

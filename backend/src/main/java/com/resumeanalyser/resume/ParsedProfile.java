@@ -58,6 +58,23 @@ public class ParsedProfile {
     @Column(nullable = false)
     private List<EducationEntry> education;
 
+    /** ATS compatibility score earned, from the same ML analysis run that produced this profile. */
+    @Column(name = "ats_score", nullable = false)
+    private double atsScore;
+
+    /** Maximum possible ATS score for {@link #atsScore} to be measured against. */
+    @Column(name = "ats_max_score", nullable = false)
+    private double atsMaxScore;
+
+    /** Individual pass/fail ATS checks backing {@link #atsScore}. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "ats_checks", nullable = false)
+    private List<AtsCheckEntry> atsChecks;
+
+    /** LLM-generated coaching explanation of the ATS score, role matches, and skill gaps. */
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String explanation = "";
+
     /**
      * One entry in a candidate's work history.
      *
@@ -77,4 +94,13 @@ public class ParsedProfile {
      * @param year        free-text graduation year as written on the resume
      */
     public record EducationEntry(String degree, String institution, String year) {}
+
+    /**
+     * One named pass/fail ATS check, mirroring the ML service's {@code AtsCheck}.
+     *
+     * @param name   the check's identifier (e.g. {@code "contact_email"})
+     * @param passed whether the resume passed this check
+     * @param detail human-readable detail explaining the result
+     */
+    public record AtsCheckEntry(String name, boolean passed, String detail) {}
 }
