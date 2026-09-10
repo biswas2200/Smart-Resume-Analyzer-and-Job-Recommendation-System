@@ -23,10 +23,11 @@ terminal):
    ```bash
    uvicorn app.main:app --reload
    ```
-2. **Backend** (`backend/`, port 8080) — needs a PostgreSQL 15+ database. Flyway creates the
-   schema on startup (`db/migration/`).
+2. **Backend** (`backend/`, port 8080) — needs a PostgreSQL 15+ database (Flyway creates the
+   schema on startup, `db/migration/`) and an S3-compatible object store (MinIO) for resume
+   files.
    ```bash
-   createdb resume_analyser   # or point DB_URL/DB_USERNAME/DB_PASSWORD at an existing one
+   docker compose up -d       # starts Postgres + MinIO
    mvn spring-boot:run        # ML_SERVICE_BASE_URL defaults to http://localhost:8000
    ```
 3. **Frontend** (`frontend/`, port 4200) — expects the backend at `http://localhost:8080`

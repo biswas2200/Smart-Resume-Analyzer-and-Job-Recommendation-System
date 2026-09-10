@@ -1,3 +1,5 @@
+"""Tests the skill-canonicalization lookup table in normalizer.py."""
+
 from app.services.normalizer import normalize_skill, normalize_skills
 
 
