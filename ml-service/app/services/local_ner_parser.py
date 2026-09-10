@@ -45,7 +45,13 @@ _SKILL_DELIMITER_RE = re.compile(r"[,/|;•\n]+|\band\b", re.IGNORECASE)
 # alternative to the model's own Email Address/Phone tags for the common
 # case; the NER tags are still used as a fallback (see _entities_to_profile)
 # for formatting the regexes miss.
-_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+#
+# _EMAIL_RE's local part and domain are each exactly one unbounded character
+# class, never two adjacent/nested ones -- this runs on user-uploaded resume
+# text, so avoiding any backtracking-blowup shape matters more than
+# rejecting a domain with no dot in it (an edge case this lenient,
+# heuristic check doesn't need to catch anyway).
+_EMAIL_RE = re.compile(r"[\w.+-]+@[\w.-]+")
 _PHONE_RE = re.compile(r"(?:\+?\d{1,3}[-.\s]?)?\(?\d{3,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}")
 
 # Matches date ranges like "Jan 2020 - Mar 2022", "2019-2021",
@@ -122,6 +128,36 @@ def _chunk_text(text: str, max_words: int = 380, overlap_words: int = 50) -> lis
     return chunks
 
 
+def _apply_education_entity(group: str, text: str, current_edu: dict | None, education: list[dict]) -> dict | None:
+    """Handles one "Degree" (anchor) or education-filler entity, returning
+    what should become the new current_edu. A filler with no anchor open
+    yet (e.g. a stray "College Name" before any "Degree") is dropped rather
+    than starting a placeholder record -- an empty-degree row would just be
+    noise, most likely from a model misfire (90.87% F1, not 100%).
+    """
+    if group == "Degree":
+        if current_edu is not None:
+            education.append(current_edu)
+        return {"degree": text, "institution": "", "year": ""}
+    if current_edu is not None:
+        current_edu[_EDUCATION_FILLER_FIELDS[group]] = text
+    return current_edu
+
+
+def _apply_experience_entity(group: str, text: str, current_exp: dict | None, experience: list[dict]) -> dict | None:
+    """Handles one "Designation" (anchor) or experience-filler entity,
+    returning what should become the new current_exp. Same drop-if-no-anchor
+    behavior as _apply_education_entity, for the same reason.
+    """
+    if group == "Designation":
+        if current_exp is not None:
+            experience.append(current_exp)
+        return {"title": text, "organization": "", "duration": "", "description": ""}
+    if current_exp is not None:
+        current_exp[_EXPERIENCE_FILLER_FIELDS[group]] = text
+    return current_exp
+
+
 def _entities_to_profile(entities: list[NerEntity], full_text: str) -> ResumeProfile:
     """Assemble a ResumeProfile from a flat, already-in-document-order list
     of NER entities. Pure function (no model, no I/O) so tests can exercise
@@ -131,10 +167,9 @@ def _entities_to_profile(entities: list[NerEntity], full_text: str) -> ResumePro
     experience: list[dict] = []
     current_edu: dict | None = None
     current_exp: dict | None = None
-    skill_spans: list[str] = []
-    email_spans: list[str] = []
-    phone_spans: list[str] = []
-    name_spans: list[str] = []
+    education_groups = {"Degree", *_EDUCATION_FILLER_FIELDS}
+    experience_groups = {"Designation", *_EXPERIENCE_FILLER_FIELDS}
+    simple_spans = {"Skills": [], "Email Address": [], "Phone": [], "Name": []}
 
     for entity in entities:
         group = entity.get("entity_group", "")
@@ -142,40 +177,20 @@ def _entities_to_profile(entities: list[NerEntity], full_text: str) -> ResumePro
         if not text:
             continue
 
-        if group == "Degree":
-            if current_edu is not None:
-                education.append(current_edu)
-            current_edu = {"degree": text, "institution": "", "year": ""}
-        elif group in _EDUCATION_FILLER_FIELDS:
-            # A filler with no anchor open yet (e.g. a stray "College Name"
-            # before any "Degree") is dropped rather than starting a
-            # placeholder record -- an empty-degree row would just be noise,
-            # most likely from a model misfire (90.87% F1, not 100%).
-            if current_edu is not None:
-                current_edu[_EDUCATION_FILLER_FIELDS[group]] = text
-        elif group == "Designation":
-            if current_exp is not None:
-                experience.append(current_exp)
-            current_exp = {
-                "title": text,
-                "organization": "",
-                "duration": "",
-                "description": "",
-            }
-        elif group in _EXPERIENCE_FILLER_FIELDS:
-            if current_exp is not None:
-                current_exp[_EXPERIENCE_FILLER_FIELDS[group]] = text
-        elif group == "Skills":
-            skill_spans.append(text)
-        elif group == "Email Address":
-            email_spans.append(text)
-        elif group == "Phone":
-            phone_spans.append(text)
-        elif group == "Name":
-            name_spans.append(text)
+        if group in education_groups:
+            current_edu = _apply_education_entity(group, text, current_edu, education)
+        elif group in experience_groups:
+            current_exp = _apply_experience_entity(group, text, current_exp, experience)
+        elif group in simple_spans:
+            simple_spans[group].append(text)
         # "Years of Experience", "Location", "UNKNOWN" (and anything else
         # the model emits) are intentionally not mapped to any
         # ResumeProfile field -- a known local-path gap, not a bug.
+
+    skill_spans = simple_spans["Skills"]
+    email_spans = simple_spans["Email Address"]
+    phone_spans = simple_spans["Phone"]
+    name_spans = simple_spans["Name"]
 
     if current_edu is not None:
         education.append(current_edu)
@@ -219,6 +234,25 @@ def _dedupe_records(records: list[dict], key_fields: tuple[str, ...]) -> list[di
     return deduped
 
 
+def _nearest_unconsumed_match_index(matches: list[re.Match], consumed: list[bool], title_pos: int) -> int | None:
+    """Index of the not-yet-consumed match in matches closest to title_pos,
+    or None if every match is either already consumed or farther away than
+    _MAX_DATE_MATCH_DISTANCE_CHARS.
+    """
+    best_index = None
+    best_distance = None
+    for index, match in enumerate(matches):
+        if consumed[index]:
+            continue
+        distance = abs(match.start() - title_pos)
+        if distance > _MAX_DATE_MATCH_DISTANCE_CHARS:
+            continue
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            best_index = index
+    return best_index
+
+
 def _fill_experience_durations(experience: list[dict], full_text: str) -> list[dict]:
     """Best-effort fill of each experience entry's duration by matching it
     to the nearest not-yet-used date-range match in the surrounding text.
@@ -236,18 +270,7 @@ def _fill_experience_durations(experience: list[dict], full_text: str) -> list[d
         if title_pos == -1:
             continue
 
-        best_index = None
-        best_distance = None
-        for index, match in enumerate(matches):
-            if consumed[index]:
-                continue
-            distance = abs(match.start() - title_pos)
-            if distance > _MAX_DATE_MATCH_DISTANCE_CHARS:
-                continue
-            if best_distance is None or distance < best_distance:
-                best_distance = distance
-                best_index = index
-
+        best_index = _nearest_unconsumed_match_index(matches, consumed, title_pos)
         if best_index is not None:
             consumed[best_index] = True
             entry["duration"] = matches[best_index].group(0)

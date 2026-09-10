@@ -1,3 +1,5 @@
+"""Tests the deterministic rule-based checks in ats_score.py."""
+
 from app.services.ats_score import score_resume
 
 GOOD_RESUME = """

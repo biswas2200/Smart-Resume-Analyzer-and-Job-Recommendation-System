@@ -8,6 +8,7 @@ Per-layer breakdown, built vs. planned. Source: repo root `README.md` and SRS Ta
 | **Backend** | Java 21, Spring Boot 3.x, Spring Security (JWT), PostgreSQL 15+ | Planned |
 | **ML service** | Python 3.12, FastAPI, `sentence-transformers` (`all-MiniLM-L6-v2`), local NER (`yashpwr/resume-ner-bert-v2`), Groq API (`llama-3.3-70b-versatile`) / Gemini API (`gemini-2.5-flash-lite`) | **Implemented** — `ml-service/` |
 | **Database** | PostgreSQL 15+ | Planned |
+| **Object storage** | MinIO (S3-compatible) for uploaded resume files — `resume.ResumeStorageService`; no separate NoSQL store, see [LLD §7.3](lld.md) | **Implemented** — `backend/` |
 | **Resume parsing backend** | Local NER model (`yashpwr/resume-ner-bert-v2`, fully offline, no API key) — default; LLM (Groq/Gemini) — opt-in, selectable via `PARSER_BACKEND` | **Implemented** — both backends, `parser.py` / `local_ner_parser.py` |
 | **Resume file upload** | `pdfplumber` (PDF text + word-position extraction, column-aware reordering); format dispatch via a `DocumentTextExtractor` adapter interface (`document_extraction/`) — PDF only today, DOCX planned | **Implemented** — `POST /parse-file`, `document_extraction/` |
 | **LLM provider** | Groq API (chat completions, also hosts Gemma models under the same API) and Gemini API (Google's own hosted API), selectable via `LLM_PROVIDER`. Used for explanation generation always, and for parsing only when `PARSER_BACKEND=llm` | **Implemented** — both providers, `llm_client.py` |

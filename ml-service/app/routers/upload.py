@@ -27,7 +27,7 @@ async def _extract_text(file: UploadFile) -> str:
     return extractor.extract(file_bytes)
 
 
-@router.post("/parse-file", response_model=ParseResponse)
+@router.post("/parse-file", responses={415: {"description": "Unsupported file type"}})
 async def parse_file(file: UploadFile) -> ParseResponse:
     """Extract text from an uploaded resume file (PDF today; see
     document_extraction/registry.py for what's supported) and run it
@@ -37,7 +37,7 @@ async def parse_file(file: UploadFile) -> ParseResponse:
     return ParseResponse(profile=parse_resume(resume_text))
 
 
-@router.post("/analyze-file", response_model=AnalyzeResponse)
+@router.post("/analyze-file", responses={415: {"description": "Unsupported file type"}})
 async def analyze_file(file: UploadFile, top_n: int = 3) -> AnalyzeResponse:
     """File-upload counterpart to POST /analyze: extract text the same way
     parse_file() does, then run the exact same profile/ATS/match/gap/

@@ -8,9 +8,12 @@ import com.resumeanalyser.resume.ParsedProfile;
 import com.resumeanalyser.resume.ParsedProfileRepository;
 import com.resumeanalyser.resume.Resume;
 import com.resumeanalyser.resume.ResumeRepository;
+import com.resumeanalyser.skillvector.SkillVectorService;
 import org.springframework.stereotype.Service;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Owns everything role-recommendation related: turning one resume analysis
@@ -25,17 +28,20 @@ public class RecommendationService {
     private final RecommendationRepository recommendationRepository;
     private final ResumeRepository resumeRepository;
     private final ParsedProfileRepository parsedProfileRepository;
+    private final SkillVectorService skillVectorService;
 
     public RecommendationService(
             RoleRepository roleRepository,
             RecommendationRepository recommendationRepository,
             ResumeRepository resumeRepository,
-            ParsedProfileRepository parsedProfileRepository
+            ParsedProfileRepository parsedProfileRepository,
+            SkillVectorService skillVectorService
     ) {
         this.roleRepository = roleRepository;
         this.recommendationRepository = recommendationRepository;
         this.resumeRepository = resumeRepository;
         this.parsedProfileRepository = parsedProfileRepository;
+        this.skillVectorService = skillVectorService;
     }
 
     /**
@@ -44,7 +50,10 @@ public class RecommendationService {
      * resume itself, reusing the same ML response rather than calling the ML
      * service a second time). Roles are upserted by title -- the first time a
      * given role is matched anywhere, a new {@link Role} row is created for it;
-     * every match after that reuses the existing row.
+     * every match after that reuses the existing row. Every matched/missing
+     * skill also gets a {@code SkillVector} row initialized (FR-7.1) if it
+     * doesn't have one yet, so the role's skills are visible at the default
+     * weight even before any feedback exists for them.
      *
      * @param user    the account this analysis was run for
      * @param resume  the resume version that was analyzed
@@ -67,6 +76,10 @@ public class RecommendationService {
             recommendation.setMatchedSkills(match.matchedSkills());
             recommendation.setMissingSkills(match.missingSkills());
             recommendationRepository.save(recommendation);
+
+            Set<String> allSkills = new LinkedHashSet<>(match.matchedSkills());
+            allSkills.addAll(match.missingSkills());
+            skillVectorService.ensureInitialized(role, allSkills);
         }
     }
 

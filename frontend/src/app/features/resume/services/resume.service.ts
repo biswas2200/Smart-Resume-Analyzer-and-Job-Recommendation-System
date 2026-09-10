@@ -9,10 +9,10 @@ import { ParsedProfile, Resume } from '../models/resume.model';
 // The backend (com.resumeanalyser.resume.ResumeService) enforces the same size limit
 // server-side; this check just gives the user faster feedback before any upload starts.
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = [
+const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-];
+]);
 
 /**
  * Resume upload and retrieval, backed by the real `POST/GET /resumes` and
@@ -27,7 +27,7 @@ export class ResumeService {
    * @returns a user-facing error message, or null when the file is acceptable.
    */
   validateFile(file: File): string | null {
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    if (!ALLOWED_MIME_TYPES.has(file.type)) {
       return 'Only PDF or DOCX files are accepted.';
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
