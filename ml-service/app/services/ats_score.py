@@ -8,7 +8,12 @@ import re
 
 from app.models.schemas import AtsCheck, AtsScoreResponse
 
-EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+# Local part and domain are each exactly one unbounded character class,
+# never two adjacent/nested ones -- this text comes straight from
+# user-uploaded resumes, so avoiding any backtracking-blowup shape matters
+# more than rejecting a domain with no dot in it (an edge case this lenient,
+# heuristic check doesn't need to catch anyway).
+EMAIL_RE = re.compile(r"[\w.+-]+@[\w.-]+")
 PHONE_RE = re.compile(r"(\+?\d[\d\s().-]{8,}\d)")
 
 SECTION_HEADERS = {
@@ -35,6 +40,12 @@ def _has_section(text_lower: str, header_variants: list[str]) -> bool:
 
 
 def score_resume(resume_text: str, target_keywords: list[str] | None = None) -> AtsScoreResponse:
+    """Run every rule-based check against resume_text and total their weights.
+    When target_keywords is given, an extra "keyword_coverage" check is added
+    on top of the base checks (and its weight added to max_score) -- omitted
+    entirely otherwise, since without target keywords there's nothing to
+    check coverage against.
+    """
     text_lower = resume_text.lower()
     checks: list[AtsCheck] = []
     earned = 0.0

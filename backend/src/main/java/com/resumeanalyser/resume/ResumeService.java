@@ -27,7 +27,7 @@ import java.util.UUID;
 @Service
 public class ResumeService {
 
-    private static final long MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+    private static final long MAX_FILE_SIZE_BYTES = 5L * 1024 * 1024;
     private static final int TOP_N_MATCHES = 3;
 
     private final ResumeRepository resumeRepository;

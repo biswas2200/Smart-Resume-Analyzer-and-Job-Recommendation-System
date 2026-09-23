@@ -43,6 +43,10 @@ def _skill_set_vector(skills: list[str]) -> np.ndarray:
 
 
 def match_roles(raw_skills: list[str], top_n: int = 5) -> list[RoleMatch]:
+    """Rank every curated role against raw_skills by cosine similarity of
+    their mean skill-embedding vectors, returning the top_n highest-scoring
+    matches with their matched/missing skill breakdown.
+    """
     candidate_skills = normalize_skills(raw_skills)
     candidate_set = set(candidate_skills)
     candidate_vector = _skill_set_vector(candidate_skills)
@@ -50,7 +54,6 @@ def match_roles(raw_skills: list[str], top_n: int = 5) -> list[RoleMatch]:
     scored: list[RoleMatch] = []
     for role in _load_roles():
         role_skills = role["skills"]
-        role_set = set(role_skills)
         role_vector = _role_vector(role["role"])
 
         score = embeddings.cosine_similarity(candidate_vector, role_vector)

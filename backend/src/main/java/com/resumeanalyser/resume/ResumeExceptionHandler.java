@@ -40,6 +40,20 @@ public class ResumeExceptionHandler {
         return errorResponse(status, e.getMessage());
     }
 
+    /**
+     * Handles a failure talking to the object store (MinIO/S3) -- same
+     * reasoning as {@link #handleMlServiceFailure}: an external dependency
+     * being down is this backend's problem, not the caller's, so it's a 502
+     * rather than a 500 or 400.
+     *
+     * @param e the thrown exception
+     * @return a 502 Bad Gateway response
+     */
+    @ExceptionHandler(ObjectStorageException.class)
+    public ResponseEntity<ApiError> handleObjectStorageFailure(ObjectStorageException e) {
+        return errorResponse(HttpStatus.BAD_GATEWAY, "The resume storage service is currently unavailable");
+    }
+
     private ResponseEntity<ApiError> errorResponse(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(ApiError.of(status.value(), message));
     }

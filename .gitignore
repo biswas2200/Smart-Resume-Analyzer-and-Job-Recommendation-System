@@ -23,9 +23,6 @@ target/
 .mvn/
 hs_err_pid*
 
-# Local resume file storage (app.storage.resume-dir default, backend/README.md)
-backend/data/
-
 # Node / frontend
 node_modules/
 dist/
@@ -41,6 +38,9 @@ build/
 
 # Logs
 *.log
+
+# SonarQube scanner local cache/report dir
+.scannerwork/
 
 # Internal working docs (SRS draft, notes) -- not meant for the public repo
 documents/
