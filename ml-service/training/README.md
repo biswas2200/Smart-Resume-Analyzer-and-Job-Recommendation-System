@@ -17,6 +17,11 @@ By leveraging **Google Cloud Platform (GCP)** and the allocated **$300 GCP credi
 
 ## 2. GCP Infrastructure Setup
 
+> Data work comes before training: uploading the datasets, cleaning, and Gemini
+> labelling run on a CPU VM and BigQuery, described in [gcp-setup.md](gcp-setup.md).
+> The cleaning code and its checks are in [data_prep/](data_prep/README.md).
+> This section covers the GPU VM used for training afterwards.
+
 ### Recommended Setup: Compute Engine VM with GPU
 1. **Create an instance in GCP Console:**
    * **Machine family:** General-purpose / GPU (`n1-standard-4`, 4 vCPUs, 15 GB RAM).
