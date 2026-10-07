@@ -1,7 +1,4 @@
 {
-  "13 weeks": [
-    "13 weeks"
-  ],
   "3D Modeling": [
     "3d modeling"
   ],
@@ -41,9 +38,6 @@
   "ASE automotive certification": [
     "ase automotive certification"
   ],
-  "AVMA accredited college": [
-    "avma accredited college"
-  ],
   "Absence management": [
     "absence management"
   ],
@@ -76,9 +70,6 @@
   ],
   "Active Adjusters License": [
     "active adjusters license"
-  ],
-  "Active license": [
-    "active license"
   ],
   "Adaptability": [
     "adaptability"
@@ -296,9 +287,6 @@
   "Blueprints": [
     "blueprints"
   ],
-  "Board Certification": [
-    "board certification"
-  ],
   "Bookkeeping": [
     "bookkeeping"
   ],
@@ -373,9 +361,6 @@
   ],
   "CIA": [
     "cia"
-  ],
-  "CIEEM membership": [
-    "cieem membership"
   ],
   "CIMA": [
     "cima"
@@ -467,6 +452,9 @@
   "Case Management": [
     "case management"
   ],
+  "Cash Management": [
+    "cash management"
+  ],
   "Cash control": [
     "cash control"
   ],
@@ -494,9 +482,6 @@
   "Census": [
     "census"
   ],
-  "Certificates": [
-    "certificates"
-  ],
   "Certified Financial Planner (CFP)": [
     "certified financial planner (cfp)"
   ],
@@ -514,9 +499,6 @@
   ],
   "Chemistry": [
     "chemistry"
-  ],
-  "Child Abuse Registry Check": [
-    "child abuse registry check"
   ],
   "Child Custody": [
     "child custody"
@@ -566,9 +548,6 @@
   "Classroom Management": [
     "classroom management"
   ],
-  "Clean driving record": [
-    "clean driving record"
-  ],
   "Cleaning": [
     "cleaning"
   ],
@@ -580,6 +559,9 @@
   ],
   "Client Management": [
     "client management"
+  ],
+  "Client Relations": [
+    "client relations"
   ],
   "Client Relationship Management": [
     "client relationship management"
@@ -607,6 +589,12 @@
   ],
   "Closing Techniques": [
     "closing techniques"
+  ],
+  "Cloudbased EMR": [
+    "cloudbased emr"
+  ],
+  "Cloudbased electronic medical records": [
+    "cloudbased electronic medical records"
   ],
   "Coaching": [
     "coaching"
@@ -644,9 +632,6 @@
   "Commercial driving": [
     "commercial driving"
   ],
-  "Commissionbased opportunity": [
-    "commissionbased opportunity"
-  ],
   "Commissioned Sales": [
     "commissioned sales"
   ],
@@ -682,9 +667,6 @@
   ],
   "Computed Tomography": [
     "computed tomography"
-  ],
-  "Computer Programs": [
-    "computer programs"
   ],
   "Computer Science": [
     "computer science"
@@ -730,9 +712,6 @@
   ],
   "Consumer Insights": [
     "consumer insights"
-  ],
-  "Consumer Products and Solutions": [
-    "consumer products and solutions"
   ],
   "Content Creation": [
     "content creation"
@@ -817,9 +796,6 @@
   ],
   "Credit Analysis": [
     "credit analysis"
-  ],
-  "Criminal Records Check": [
-    "criminal records check"
   ],
   "Crisis Intervention": [
     "crisis intervention"
@@ -947,9 +923,6 @@
   "Digital radiology": [
     "digital radiology"
   ],
-  "Digital solutions": [
-    "digital solutions"
-  ],
   "Discharge Planning": [
     "discharge planning"
   ],
@@ -968,9 +941,6 @@
   "Divorce": [
     "divorce"
   ],
-  "Doctor of Medicine": [
-    "doctor of medicine"
-  ],
   "Documentation": [
     "documentation"
   ],
@@ -985,9 +955,6 @@
   ],
   "Dusting": [
     "dusting"
-  ],
-  "ECFVG or PAVE program": [
-    "ecfvg or pave program"
   ],
   "EHS": [
     "ehs"
@@ -1015,9 +982,6 @@
   ],
   "ETABS": [
     "etabs"
-  ],
-  "Ear infections": [
-    "ear infections"
   ],
   "Early Childhood Education": [
     "early childhood education"
@@ -1103,9 +1067,6 @@
   "Employee Relations": [
     "employee relations"
   ],
-  "Employee Resource Connection": [
-    "employee resource connection"
-  ],
   "Employment Law": [
     "employment law"
   ],
@@ -1124,8 +1085,8 @@
   "Entrata": [
     "entrata"
   ],
-  "Equipment List": [
-    "equipment list"
+  "Equipment Lifting": [
+    "equipment lifting"
   ],
   "Equity": [
     "equity"
@@ -1144,9 +1105,6 @@
   ],
   "Excel": [
     "excel"
-  ],
-  "Excellence": [
-    "excellence"
   ],
   "Exceptional Customer Service": [
     "exceptional customer service"
@@ -1193,8 +1151,8 @@
   "Fanuc": [
     "fanuc"
   ],
-  "Fertility and FamilyBuilding Assistance": [
-    "fertility and familybuilding assistance"
+  "Field Surveys": [
+    "field surveys"
   ],
   "Field Technician": [
     "field technician"
@@ -1225,6 +1183,9 @@
   ],
   "Financial Education": [
     "financial education"
+  ],
+  "Financial Management": [
+    "financial management"
   ],
   "Financial Modeling": [
     "financial modeling"
@@ -1300,9 +1261,6 @@
   ],
   "Forklift operation": [
     "forklift operation"
-  ],
-  "Formal training": [
-    "formal training"
   ],
   "Foundation Design": [
     "foundation design"
@@ -1406,9 +1364,6 @@
   "Group Therapy": [
     "group therapy"
   ],
-  "Guaranteed Hours": [
-    "guaranteed hours"
-  ],
   "Guest Services": [
     "guest services"
   ],
@@ -1426,6 +1381,9 @@
   ],
   "HDR": [
     "hdr"
+  ],
+  "HIPAA": [
+    "hipaa"
   ],
   "HMI": [
     "hmi"
@@ -1466,6 +1424,9 @@
   "Health and Safety": [
     "health and safety"
   ],
+  "Healthcare": [
+    "healthcare"
+  ],
   "Healthcare Staffing": [
     "healthcare staffing"
   ],
@@ -1474,9 +1435,6 @@
   ],
   "Hematology": [
     "hematology"
-  ],
-  "High school education": [
-    "high school education"
   ],
   "Hiring": [
     "hiring"
@@ -1631,9 +1589,6 @@
   "Job descriptions": [
     "job descriptions"
   ],
-  "Job knowledge": [
-    "job knowledge"
-  ],
   "Joint Commission Certified": [
     "joint commission certified"
   ],
@@ -1651,9 +1606,6 @@
   ],
   "Kitchen equipment": [
     "kitchen equipment"
-  ],
-  "Kitchen rules": [
-    "kitchen rules"
   ],
   "LCSW": [
     "lcsw"
@@ -1814,6 +1766,9 @@
   "Loan Underwriting": [
     "loan underwriting"
   ],
+  "Loan officer": [
+    "loan officer"
+  ],
   "Local market knowledge": [
     "local market knowledge"
   ],
@@ -1828,9 +1783,6 @@
   ],
   "Luxury Sales": [
     "luxury sales"
-  ],
-  "MLS membership": [
-    "mls membership"
   ],
   "MRP": [
     "mrp"
@@ -1909,9 +1861,6 @@
   ],
   "Master Scheduling": [
     "master scheduling"
-  ],
-  "Matching Gifts Program": [
-    "matching gifts program"
   ],
   "Material Handling": [
     "material handling"
@@ -2180,8 +2129,8 @@
   "Open Enrollment": [
     "open enrollment"
   ],
-  "Open architecture platform": [
-    "open architecture platform"
+  "Open houses": [
+    "open houses"
   ],
   "Operating Room": [
     "operating room"
@@ -2240,9 +2189,6 @@
   "Packaging": [
     "packaging"
   ],
-  "Paid training": [
-    "paid training"
-  ],
   "Painting": [
     "painting"
   ],
@@ -2282,9 +2228,6 @@
   "Performance Management": [
     "performance management"
   ],
-  "Performancebased promotions": [
-    "performancebased promotions"
-  ],
   "Permitting": [
     "permitting"
   ],
@@ -2296,15 +2239,6 @@
   ],
   "Personal grooming": [
     "personal grooming"
-  ],
-  "Personal website": [
-    "personal website"
-  ],
-  "Ph.D": [
-    "ph.d"
-  ],
-  "PhD": [
-    "phd"
   ],
   "Photography": [
     "photography"
@@ -2561,9 +2495,6 @@
   "Proposal Writing": [
     "proposal writing"
   ],
-  "Proprietary platform": [
-    "proprietary platform"
-  ],
   "Prospecting": [
     "prospecting"
   ],
@@ -2581,6 +2512,9 @@
   ],
   "Psychology": [
     "psychology"
+  ],
+  "Psychosocial assessment": [
+    "psychosocial assessment"
   ],
   "Psychotherapy": [
     "psychotherapy"
@@ -2672,17 +2606,23 @@
   "Radiology": [
     "radiology"
   ],
+  "Rapport building": [
+    "rapport building"
+  ],
   "Real Estate": [
     "real estate"
   ],
   "Real Estate Licensing": [
     "real estate licensing"
   ],
-  "Real estate classes": [
-    "real estate classes"
-  ],
   "Real estate license": [
     "real estate license"
+  ],
+  "Real estate market knowledge": [
+    "real estate market knowledge"
+  ],
+  "Receivables": [
+    "receivables"
   ],
   "Receiving": [
     "receiving"
@@ -2693,6 +2633,9 @@
   "Recognition": [
     "recognition"
   ],
+  "Record Keeping": [
+    "record keeping"
+  ],
   "Recruiting": [
     "recruiting"
   ],
@@ -2701,9 +2644,6 @@
   ],
   "Recycling": [
     "recycling"
-  ],
-  "Referral Program": [
-    "referral program"
   ],
   "Registered Nurse": [
     "registered nurse"
@@ -2722,9 +2662,6 @@
   ],
   "Relationship management": [
     "relationship management"
-  ],
-  "Relocation to Madison WI": [
-    "relocation to madison wi"
   ],
   "Remediation": [
     "remediation"
@@ -2746,9 +2683,6 @@
   ],
   "Research Methods": [
     "research methods"
-  ],
-  "Research Statement": [
-    "research statement"
   ],
   "ResearchBased Curriculum": [
     "researchbased curriculum"
@@ -2948,11 +2882,14 @@
   "Selfmotivation": [
     "selfmotivation"
   ],
-  "Series 7 and 66 licensing exams": [
-    "series 7 and 66 licensing exams"
+  "Series 7": [
+    "series 7"
   ],
   "Serve Safe Certification": [
     "serve safe certification"
+  ],
+  "Service Procedures": [
+    "service procedures"
   ],
   "Service learning": [
     "service learning"
@@ -3014,18 +2951,6 @@
   "Social Work": [
     "social work"
   ],
-  "Social Work England registered": [
-    "social work england registered"
-  ],
-  "Social Work England registration": [
-    "social work england registration"
-  ],
-  "Social Work Qualification": [
-    "social work qualification"
-  ],
-  "Software Tools": [
-    "software tools"
-  ],
   "Soil Mechanics": [
     "soil mechanics"
   ],
@@ -3073,12 +2998,6 @@
   ],
   "State Bar": [
     "state bar"
-  ],
-  "State certifications and requirements": [
-    "state certifications and requirements"
-  ],
-  "State licensing exam": [
-    "state licensing exam"
   ],
   "Statistical Analysis": [
     "statistical analysis"
@@ -3128,6 +3047,9 @@
   "Strategic Thinking": [
     "strategic thinking"
   ],
+  "Strong writing and communication skills": [
+    "strong writing and communication skills"
+  ],
   "Structural Analysis": [
     "structural analysis"
   ],
@@ -3160,6 +3082,9 @@
   ],
   "Superintendent": [
     "superintendent"
+  ],
+  "Supervision": [
+    "supervision"
   ],
   "Supervisory": [
     "supervisory"
@@ -3248,8 +3173,8 @@
   "Teaching": [
     "teaching"
   ],
-  "Teaching Philosophy": [
-    "teaching philosophy"
+  "Teaching or Training": [
+    "teaching or training"
   ],
   "Team Building": [
     "team building"
@@ -3305,9 +3230,6 @@
   "Therapy": [
     "therapy"
   ],
-  "Tier 1 Investigation": [
-    "tier 1 investigation"
-  ],
   "Tier II reporting": [
     "tier ii reporting"
   ],
@@ -3332,9 +3254,6 @@
   "Transaction management": [
     "transaction management"
   ],
-  "Transcripts": [
-    "transcripts"
-  ],
   "Transparency": [
     "transparency"
   ],
@@ -3346,9 +3265,6 @@
   ],
   "Travel Nursing": [
     "travel nursing"
-  ],
-  "Travel job": [
-    "travel job"
   ],
   "Treatment Planning": [
     "treatment planning"
@@ -3362,14 +3278,14 @@
   "Truck Driving": [
     "truck driving"
   ],
+  "Trust": [
+    "trust"
+  ],
   "Typing": [
     "typing"
   ],
   "Typography": [
     "typography"
-  ],
-  "U.S. Citizenship": [
-    "u.s. citizenship"
   ],
   "USPTO": [
     "uspto"
@@ -3428,6 +3344,9 @@
   "Video editing": [
     "video editing"
   ],
+  "Videobased communications": [
+    "videobased communications"
+  ],
   "Virtual Counseling": [
     "virtual counseling"
   ],
@@ -3439,12 +3358,6 @@
   ],
   "Volunteer Management": [
     "volunteer management"
-  ],
-  "Vomiting/diarrhea": [
-    "vomiting/diarrhea"
-  ],
-  "Vulnerable Sector Search": [
-    "vulnerable sector search"
   ],
   "Warehouse": [
     "warehouse"
@@ -3517,9 +3430,6 @@
   ],
   "Working at heights": [
     "working at heights"
-  ],
-  "Working with Children Check": [
-    "working with children check"
   ],
   "Workload Planning": [
     "workload planning"

@@ -262,6 +262,30 @@ NON_SKILL_PATTERN = re.compile(
     r"^veterinarian$|mars five|debt relief|volunteer opportunities|work ?life balance|"
     r"^culture$|^collaborative environment$"
 )
+# Entries the 2026-10 review of skill_taxonomy_general.json found in skill
+# lists that are not skills a resume can show. Anchored or specific on purpose:
+# real credentials ("CPR", "CPA license"), soft skills and titles stay.
+JUNK_SKILL_PATTERN = re.compile(
+    # benefits, contract terms and posting boilerplate
+    r"^\d+ weeks?$|guaranteed hours|^paid training$|^relocation\b|^travel job$|"
+    r"commission-?based opportunity|performance-?based promotions|matching gifts|"
+    r"fertility|family-?building|employee resource|^referral program$|"
+    r"^proprietary platform$|^open architecture platform$|^formal training$|"
+    r"^real estate classes$|^excellence$|\d+\s*-?\s*hour shifts?|^sick pay$|friendly competitions|"
+    r"secure online chat|^cancellations$|^closed transactions$|^portfolio$|career growth|"
+    # background checks and eligibility, not abilities
+    r"records? check|registry check|children check|vulnerable sector|citizenship|"
+    r"clean driving record|^tier \d+ investigation$|state certifications and requirements|"
+    r"licensing exam|^active license$|^board certification$|^certificates$|membership|"
+    r"england regist|^social work qualification$|"
+    # application documents
+    r"^transcripts$|research statement|teaching philosophy|personal website|"
+    # degrees and schooling (degree/diploma are already caught above)
+    r"^ph\.?d$|doctor of medicine|high school education|accredited college|avma accredit|ecfvg|dvm/vmd|"
+    # noise: symptoms, lists, company divisions, vague catch-alls
+    r"vomiting|ear infections|^equipment list$|consumer products and solutions|"
+    r"^job knowledge$|^computer programs$|^digital solutions$|^software tools$|^kitchen rules$"
+)
 # Normalised titles that survived the rules but are not roles anyone would
 # target (recruiting-programme names, one employer's internal titles).
 EXCLUDED_TITLES = {
@@ -341,7 +365,7 @@ def clean_skill(raw: str) -> str | None:
         return None
     if not GENERIC_SKILL_PATTERN.match(s.lower()):
         return None
-    if NON_SKILL_PATTERN.search(s.lower()):
+    if NON_SKILL_PATTERN.search(s.lower()) or JUNK_SKILL_PATTERN.search(s.lower()):
         return None
     return s
 

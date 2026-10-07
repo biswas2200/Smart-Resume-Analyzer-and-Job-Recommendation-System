@@ -26,12 +26,12 @@
       "CT Technologist",
       "Cath Lab Technologist",
       "Allied Health",
-      "Guaranteed Hours",
       "Radiology",
-      "13 weeks",
-      "Travel job",
       "Travel Nursing",
-      "Surgical Technologist"
+      "Surgical Technologist",
+      "Medical Imaging",
+      "Healthcare",
+      "Patient Care"
     ],
     "source_postings": 8457
   },
@@ -40,18 +40,16 @@
     "domain": "healthcare",
     "description": "Physician roles in Healthcare & Life Sciences",
     "skills": [
-      "Board Certification",
       "Internal Medicine",
       "Residency Training",
-      "Doctor of Medicine",
       "Family Medicine",
       "Medicine",
       "Patient Care",
       "Medical License",
       "Physician",
-      "U.S. Citizenship"
+      "Research"
     ],
-    "source_postings": 5937
+    "source_postings": 5935
   },
   {
     "role": "Nurse",
@@ -65,9 +63,9 @@
       "Healthcare Staffing",
       "Patient Care",
       "Transparency",
-      "Excellence",
       "Teamwork",
-      "Professionalism"
+      "Professionalism",
+      "Adaptability"
     ],
     "source_postings": 5567
   },
@@ -87,7 +85,7 @@
       "Collaboration",
       "Time Management"
     ],
-    "source_postings": 5032
+    "source_postings": 5031
   },
   {
     "role": "Dentist",
@@ -102,8 +100,8 @@
       "Mobile Dentistry",
       "Treatment Planning",
       "Patient Care",
-      "Computer Programs",
-      "CPR/BLS Certification"
+      "CPR/BLS Certification",
+      "Networking"
     ],
     "source_postings": 3303
   },
@@ -173,9 +171,9 @@
       "Treatment Planning",
       "Patient Care",
       "Joint Commission Certified",
-      "Guaranteed Hours",
       "Documentation",
-      "Patient Education"
+      "Patient Education",
+      "Communication"
     ],
     "source_postings": 2036
   },
@@ -1110,8 +1108,8 @@
       "Culinary/food and beverage industry",
       "Excel",
       "Team education",
-      "Relocation to Madison WI",
-      "Inventory Management"
+      "Inventory Management",
+      "Supplier Management"
     ],
     "source_postings": 1912
   },
@@ -1325,9 +1323,9 @@
       "Child Development",
       "Childcare",
       "Teaching",
-      "State certifications and requirements",
       "Creativity",
-      "Curriculum implementation"
+      "Curriculum implementation",
+      "Record Keeping"
     ],
     "source_postings": 926
   },
@@ -1340,12 +1338,12 @@
       "Course Development",
       "Service learning",
       "Blackboard",
-      "Teaching Philosophy",
       "Distance learning",
       "Grading",
-      "Transcripts",
       "Curriculum Development",
-      "Collaboration"
+      "Collaboration",
+      "Professional Development",
+      "Interpersonal skills"
     ],
     "source_postings": 840
   },
@@ -1376,12 +1374,12 @@
       "Research",
       "Curriculum Development",
       "Online teaching",
-      "PhD",
       "Inclusion",
       "Diversity and Inclusion",
       "Assessment",
       "Critical Thinking",
-      "Collaboration"
+      "Collaboration",
+      "Communication"
     ],
     "source_postings": 535
   },
@@ -1394,14 +1392,14 @@
       "Early Years Learning Framework",
       "Early Childhood Education",
       "Cosmetology",
-      "Working with Children Check",
       "First Aid certificate",
       "Salon",
       "Data entry",
       "Early Years Learning Framework (EYLF)",
-      "National Quality Standards (NQS)"
+      "National Quality Standards (NQS)",
+      "Teaching or Training"
     ],
-    "source_postings": 498
+    "source_postings": 497
   },
   {
     "role": "Preschool Teacher",
@@ -1503,11 +1501,11 @@
       "Grant Writing",
       "Curriculum Development",
       "Mentoring",
-      "Research Statement",
       "Clinical Research",
       "Collaboration",
       "Data Analysis",
-      "Leadership"
+      "Leadership",
+      "Communication skills"
     ],
     "source_postings": 206
   },
@@ -1847,9 +1845,9 @@
       "Manual mode",
       "Adobe Lightroom",
       "Adobe Photoshop",
-      "Paid training",
-      "Equipment List",
-      "CaptureOne"
+      "CaptureOne",
+      "HIPAA",
+      "Equipment Lifting"
     ],
     "source_postings": 65
   },
@@ -1881,11 +1879,11 @@
       "Cashiering",
       "Retail operations",
       "Relationship management",
-      "Job knowledge",
       "Problem Solving",
       "POS systems",
       "Sales",
-      "Communication"
+      "Communication",
+      "Teamwork"
     ],
     "source_postings": 12497
   },
@@ -1989,11 +1987,11 @@
       "Meat searing",
       "Sanitation guidelines",
       "Sanitation",
-      "Formal training",
       "Teamwork",
       "Food preparation",
       "Prep Sheets",
-      "Recognition"
+      "Recognition",
+      "Positive attitude"
     ],
     "source_postings": 2001
   },
@@ -2028,8 +2026,8 @@
       "Safety procedures",
       "Dependability",
       "Physical stamina",
-      "Kitchen rules",
-      "Personal grooming"
+      "Personal grooming",
+      "Quality Standards"
     ],
     "source_postings": 1169
   },
@@ -2206,10 +2204,10 @@
       "Heavy lifting",
       "Ladder climbing",
       "Working at heights",
-      "Clean driving record",
       "Physical fitness",
       "Problemsolving",
-      "Communication skills"
+      "Communication skills",
+      "Communication"
     ],
     "source_postings": 1052
   },
@@ -2280,8 +2278,8 @@
       "Ladder work",
       "Aptitude",
       "Working at heights",
-      "Clean driving record",
-      "Field Technician"
+      "Field Technician",
+      "Rapport building"
     ],
     "source_postings": 674
   },
@@ -2293,13 +2291,13 @@
       "Customer service",
       "Installation",
       "Ladder work",
-      "Clean driving record",
       "Aptitude to build rapport",
       "Troubleshooting",
       "Working at heights",
       "Problemsolving",
       "Field Technician",
-      "Physical fitness"
+      "Physical fitness",
+      "Heavy lifting"
     ],
     "source_postings": 612
   },
@@ -2457,11 +2455,11 @@
       "Volunteer Management",
       "Program Evaluation",
       "Program Planning",
-      "Vulnerable Sector Search",
-      "Child Abuse Registry Check",
-      "Criminal Records Check",
       "MS Office Suite",
-      "Budget Management"
+      "Budget Management",
+      "Data Analysis",
+      "Attention to detail",
+      "Community Resources"
     ],
     "source_postings": 146
   },
@@ -2890,10 +2888,10 @@
       "Python",
       "Statistics",
       "Machine Learning",
-      "Ph.D",
       "Scientific Writing",
       "Grant Writing",
-      "PhD"
+      "Data Collection",
+      "English proficiency"
     ],
     "source_postings": 193
   },
@@ -3215,9 +3213,9 @@
       "Production Procedures",
       "Scheduling",
       "Motivation",
-      "Employee Resource Connection",
       "Food Cost Control",
-      "Matching Gifts Program"
+      "Customer service",
+      "Service Procedures"
     ],
     "source_postings": 1930
   },
@@ -3248,12 +3246,12 @@
       "Fulfillment",
       "Asset protection",
       "Customer service",
-      "High school education",
       "Store receiver",
       "AP/LP",
       "Merchandising",
       "Retail floor generalist",
-      "Store operations"
+      "Store operations",
+      "Operations"
     ],
     "source_postings": 1431
   },
@@ -3443,17 +3441,17 @@
     "description": "Social Worker roles in Social Services, Counselling & Public Sector",
     "skills": [
       "Social Work",
-      "Social Work England registration",
-      "Social Work Qualification",
       "Understanding of relevant legislation",
       "Continual professional development",
       "Case Management",
-      "Social Work England registered",
       "Child Protection",
       "Crisis Intervention",
-      "Safeguarding"
+      "Safeguarding",
+      "Psychosocial assessment",
+      "Community Resources",
+      "Supervision"
     ],
-    "source_postings": 1177
+    "source_postings": 1176
   },
   {
     "role": "Counselor",
@@ -3534,14 +3532,14 @@
     "skills": [
       "Accredited Financial Counselor (AFC)",
       "Chartered Financial Consultant (ChFC)",
-      "Tier 1 Investigation",
       "Financial Counseling",
       "Certified Financial Planner (CFP)",
       "Virtual Counseling",
-      "U.S. Citizenship",
       "Fluent English",
       "Financial Education",
-      "Personal Financial Counseling"
+      "Personal Financial Counseling",
+      "Financial Management",
+      "Videobased communications"
     ],
     "source_postings": 250
   },
@@ -3609,11 +3607,11 @@
       "Financial Services",
       "FINRA SIE",
       "Financial advising",
-      "Open architecture platform",
       "Investment Sales",
       "Wealth Management",
       "Client Solutions",
-      "Securities registration"
+      "Securities registration",
+      "Series 7"
     ],
     "source_postings": 1233
   },
@@ -3644,12 +3642,12 @@
       "Sales",
       "Overcoming Objections",
       "Demonstrating Technology",
-      "Consumer Products and Solutions",
       "Customer service",
       "Risk Management",
       "Learning Agility",
       "Banking",
-      "Relationship management"
+      "Relationship management",
+      "Cash Management"
     ],
     "source_postings": 494
   },
@@ -3698,12 +3696,12 @@
       "Sales",
       "Lead Generation",
       "Datadriven analytics",
-      "Commissionbased opportunity",
-      "Performancebased promotions",
       "Business processing technology",
       "Lead generation system",
       "CRM",
-      "Proprietary platform"
+      "Wealth Management",
+      "Customer service",
+      "Automation"
     ],
     "source_postings": 435
   },
@@ -3750,14 +3748,14 @@
     "skills": [
       "Cash handling",
       "Fraud detection",
-      "Digital solutions",
       "Banking procedures",
       "Teller",
       "Teller transactions",
       "Bank products",
       "Risk Management",
       "Customer service",
-      "Banking"
+      "Banking",
+      "Military"
     ],
     "source_postings": 249
   },
@@ -3771,11 +3769,11 @@
       "Endorsements",
       "Underwriting",
       "Claims",
-      "Certificates",
       "Commercial Lines Account Management",
       "Policy Management",
       "Account Retention",
-      "Policy Summaries"
+      "Policy Summaries",
+      "Receivables"
     ],
     "source_postings": 233
   },
@@ -3804,14 +3802,14 @@
     "skills": [
       "Investment strategies",
       "Securities Industry Essential (SIE) Exam",
-      "Series 7 and 66 licensing exams",
       "Wealth Management",
       "Wealth planning",
       "Client Acquisition",
       "Networking",
       "Finance",
       "Military",
-      "Presentation"
+      "Presentation",
+      "Legal"
     ],
     "source_postings": 215
   },
@@ -4090,16 +4088,16 @@
     "domain": "real_estate_property",
     "description": "Real Estate Agent roles in Real Estate, Property & Facilities",
     "skills": [
-      "MLS membership",
       "Real estate license",
       "CRM system",
       "Video editing",
       "Transaction management",
       "Contract writing",
-      "Personal website",
       "Local market knowledge",
       "SEO",
-      "Online CRM system"
+      "Online CRM system",
+      "Strong writing and communication skills",
+      "Loan officer"
     ],
     "source_postings": 645
   },
@@ -4202,12 +4200,12 @@
       "Real estate license",
       "Real Estate Licensing",
       "Negotiation",
-      "Real estate classes",
       "Home staging",
       "Marketing",
       "Home Purchase",
-      "State licensing exam",
-      "Home Sale"
+      "Home Sale",
+      "Real estate market knowledge",
+      "Open houses"
     ],
     "source_postings": 134
   },
@@ -4258,10 +4256,10 @@
       "Animal Care",
       "Preventive Petcare",
       "Dentistry",
-      "Fertility and FamilyBuilding Assistance",
       "Compassion",
       "Surgical skills",
-      "Referral Program"
+      "Client Communication",
+      "Client Relations"
     ],
     "source_postings": 4456
   },
@@ -4342,16 +4340,16 @@
     "domain": "veterinary_agriculture",
     "description": "Relief Veterinarian roles in Veterinary, Agriculture & Environment",
     "skills": [
-      "Active license",
       "IDEXX inhouse lab equipment",
       "Digital Xray",
       "Online queue system",
-      "Ear infections",
-      "Vomiting/diarrhea",
       "Wound management",
-      "ECFVG or PAVE program",
       "Euthanasia",
-      "AVMA accredited college"
+      "Veterinary Medicine",
+      "Cloudbased electronic medical records",
+      "Cloudbased EMR",
+      "Client Communication",
+      "Trust"
     ],
     "source_postings": 152
   },
@@ -4361,7 +4359,6 @@
     "description": "Ecologist roles in Veterinary, Agriculture & Environment",
     "skills": [
       "Ecology",
-      "CIEEM membership",
       "Project Management",
       "Ecological surveys",
       "Protected species surveys",
@@ -4369,7 +4366,8 @@
       "Report Writing",
       "Biodiversity Net Gain",
       "Protected Species Licences",
-      "Ecological Consultancy"
+      "Ecological Consultancy",
+      "Field Surveys"
     ],
     "source_postings": 134
   },
@@ -4399,13 +4397,13 @@
       "Project Management",
       "Stakeholder Engagement",
       "Sustainability",
-      "Software Tools",
       "Permitting",
       "Air Quality",
       "Report Writing",
       "Business Development",
       "Geology",
-      "Ecology"
+      "Ecology",
+      "Remediation"
     ],
     "source_postings": 97
   },
