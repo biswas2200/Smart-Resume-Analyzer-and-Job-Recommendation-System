@@ -44,3 +44,13 @@ build/
 
 # Internal working docs (SRS draft, notes) -- not meant for the public repo
 documents/
+
+# Downloaded evaluation/training datasets -- large, not meant for the repo
+datasets/
+
+# Personal manual-download tracking note -- not part of the shipped docs set
+# (not in mkdocs.yml's nav; see docs/datasets.md for the dataset catalogue itself)
+docs/manual-downloads-backlog.md
+
+# Personal supporting notes (not for the repo)
+supporting-docs/

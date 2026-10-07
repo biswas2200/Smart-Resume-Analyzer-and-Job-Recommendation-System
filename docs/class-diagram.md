@@ -1,8 +1,8 @@
-# Class Diagram
+# Class diagram
 
-Two diagrams: the **implemented** ML-service classes (Pydantic models + service functions, shown as static-method classes for UML purposes since Python modules of free functions don't map 1:1 to UML classes) and the **planned** backend JPA entity classes. Full source for every class shown here is in [Entities & Fields](entities-and-fields.md).
+Two diagrams: the ML-service classes and the backend JPA entity classes. The ML-service diagram covers the Pydantic models and the service functions. Both are implemented; classes marked `*` are planned additions from the [implementation order](editions-and-parity.md#7-implementation-order). [Entities & Fields](entities-and-fields.md) has the full source for every class.
 
-## 1. Implemented — ML Service (`ml-service/app/`)
+## 1. Implemented: ML service (`ml-service/app/`)
 
 ### 1.1 Data classes (Pydantic models, `models/schemas.py`)
 
@@ -47,12 +47,22 @@ classDiagram
         +str role
         +list~str~ missing_skills
     }
+    class EngineFingerprint {
+        <<planned*>>
+        +str engine_version
+        +str ner_model_sha
+        +str vectors_sha
+        +str taxonomy_sha
+        +str weights_snapshot_id
+    }
     class AnalyzeResponse {
         +ResumeProfile profile
         +AtsScoreResponse ats_score
         +list~RoleMatch~ matches
         +list~GapAnalysis~ gaps
         +str explanation
+        +str explanation_source*
+        +EngineFingerprint engine_fingerprint*
     }
 
     ResumeProfile "1" *-- "many" ExperienceEntry
@@ -62,13 +72,14 @@ classDiagram
     AnalyzeResponse "1" *-- "1" AtsScoreResponse
     AnalyzeResponse "1" *-- "many" RoleMatch
     AnalyzeResponse "1" *-- "many" GapAnalysis
+    AnalyzeResponse "1" *-- "1" EngineFingerprint
 ```
 
-*(Request-only models — `ParseRequest`, `MatchRequest`, `AtsScoreRequest`, `AnalyzeRequest` — are omitted from the diagram for readability; see [Entities & Fields](entities-and-fields.md) for their full field lists.)*
+The request-only models (`ParseRequest`, `MatchRequest`, `AtsScoreRequest`, `AnalyzeRequest`) are left out to keep the diagram readable; [Entities & Fields](entities-and-fields.md) lists their fields.
 
 ### 1.2 Service classes (behavioral view of `services/*.py`)
 
-Python implements these as modules of functions, not classes — shown here as UML classes with static-style operations, which is the standard way to diagram a functional module.
+In Python these are modules of functions. Python modules of free functions don't map one-to-one to UML classes, so each module is drawn as a class with static-style operations, the usual way to diagram a functional module.
 
 ```mermaid
 classDiagram
@@ -93,6 +104,34 @@ classDiagram
     class PdfTextExtractor {
         <<pdf_extractor.py>>
         +extract(file_bytes) str
+    }
+    class Sectioner {
+        <<sectioner.py*>>
+        +split(resume_text) Sections
+    }
+    class DictionarySkillExtractor {
+        <<dictionary_skills.py*>>
+        +find_skills(resume_text) list~str~
+    }
+    class Explainer {
+        <<Protocol*>>
+        +explain(profile, ats_score, matches, gaps) str
+    }
+    class TemplateExplainer {
+        <<explainer.py*>>
+        +explain(...) str
+    }
+    class LLMExplainer {
+        <<explainer.py>>
+        -LLMClient client
+        +explain(...) str
+    }
+    class VectorTable {
+        <<matcher.py*>>
+        -ndarray skill_vectors
+        -ndarray role_vectors
+        -dict weights
+        +lookup(skill) ndarray
     }
     class ResumeParser {
         <<parser.py>>
@@ -124,19 +163,21 @@ classDiagram
         <<gap_analysis.py>>
         +analyze_gaps(matches) list~GapAnalysis~
     }
-    class ResultExplainer {
-        <<explainer.py>>
-        +explain_results(profile, ats_score, matches, gaps, client) str
-    }
 
     GroqLLMClient ..|> LLMClient
     GeminiLLMClient ..|> LLMClient
     PdfTextExtractor ..|> DocumentTextExtractor
     ResumeParser --> LocalNerResumeParser : uses (default)
     ResumeParser --> LLMClient : uses (opt-in, PARSER_BACKEND=llm)
-    ResultExplainer --> LLMClient : uses
+    TemplateExplainer ..|> Explainer
+    LLMExplainer ..|> Explainer
+    LLMExplainer --> LLMClient : uses
+    Sectioner --> ResumeParser : sections → NER
+    Sectioner --> DictionarySkillExtractor : text
+    DictionarySkillExtractor --> SkillNormalizer : uses
     RoleMatcher --> SkillNormalizer : uses
-    RoleMatcher --> EmbeddingService : uses
+    RoleMatcher --> VectorTable : uses (planned)
+    RoleMatcher --> EmbeddingService : fallback for unknown skills
     ResumeParser --> ResumeProfile : returns
     LocalNerResumeParser --> ResumeProfile : returns
     RoleMatcher --> RoleMatch : returns
@@ -144,18 +185,24 @@ classDiagram
     GapAnalyzer --> GapAnalysis : returns
 ```
 
-## 2. Planned — Backend JPA entities
+## 2. Implemented: backend JPA entities (`backend/src/main/java/com/resumeanalyser/`)
 
-Object-oriented view of [Entity Diagram](entity-diagram.md) / [Database Schema](database-schema.md), as it will look once implemented in the Spring Boot backend.
+Object-oriented view of [Entity Diagram](entity-diagram.md) / [Database Schema](database-schema.md), matching the Flyway `V1` schema field-for-field.
 
 ```mermaid
 classDiagram
+    class UserRole {
+        <<enumeration>>
+        USER
+        PREMIUM_USER
+        ADMIN
+    }
     class User {
         -UUID id
         -String email
         -String passwordHash
+        -UserRole role
         -Instant createdAt
-        +List~Resume~ resumes
     }
     class Resume {
         -UUID id
@@ -174,6 +221,10 @@ classDiagram
         -List~String~ skills
         -List~ExperienceEntry~ experience
         -List~EducationEntry~ education
+        -double atsScore
+        -double atsMaxScore
+        -List~AtsCheckEntry~ atsChecks
+        -String explanation
     }
     class Role {
         -UUID id
@@ -193,9 +244,11 @@ classDiagram
         -UUID id
         -User user
         -Role role
+        -Resume resume
         -double matchScore
+        -List~String~ matchedSkills
+        -List~String~ missingSkills
         -Instant createdAt
-        +List~Feedback~ feedback
     }
     class Feedback {
         -UUID id
@@ -205,7 +258,9 @@ classDiagram
         -Instant createdAt
     }
 
+    User --> UserRole : role
     User "1" --> "many" Resume : owns
+    Resume "1" --> "many" Recommendation : run produced
     Resume "1" --> "0..1" ParsedProfile : produces
     User "1" --> "many" Recommendation : receives
     Role "1" --> "many" Recommendation : "recommended as"
@@ -217,5 +272,5 @@ classDiagram
 ## Related documents
 
 - [Entity Diagram](entity-diagram.md)
-- [Entities & Fields](entities-and-fields.md) — full source code for every class above
+- [Entities & Fields](entities-and-fields.md): full source code for every class above
 - [LLD](lld.md)

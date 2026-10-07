@@ -1,90 +1,113 @@
-# High-Level Design (HLD)
+# High-level design (HLD)
 
-Companion to [System Architecture](architecture.md). Where that document explains *why* the system is shaped this way, this one specifies each layer's responsibility, its interfaces to neighboring layers, and the key design decisions locked in at this level. Grounded in SRS §6 ("System Architecture Overview") and the SRS's layer-responsibility table.
+Companion to [System Architecture](architecture.md), which explains why the system has this shape. This page specifies each layer's responsibility, its interfaces, and the design decisions fixed at this level, based on [SRS v2.0 §6](srs.md#6-system-architecture-overview).
 
 ## 1. Layers and responsibilities
 
 | Layer | Responsibility | Status |
 |---|---|---|
-| **Client** (React/Angular SPA) | Resume upload, dashboard rendering (profile, matches, gaps, ATS score), JD-match screen, feedback controls. No business logic — pure presentation + API calls. | Planned |
-| **Spring Boot Backend** | Authentication (JWT), request orchestration, REST API surface exposed to the client, persistence coordination, the temporal EMA skill-vector update loop. | Planned |
-| **PostgreSQL** | Durable storage: users, resumes (versioned), parsed profiles, roles, the versioned skill-vector store, recommendations, feedback. | Planned |
-| **Python ML Service** | PDF text extraction (column-aware), embedding generation, skill normalization, cosine-similarity role matching, deterministic ATS scoring, gap analysis, structured-field extraction (local NER model by default), and one narrowly-scoped LLM call (explanation, always; extraction, only if opted into). | **Implemented** (`ml-service/`) |
-| **LLM API (Groq or Gemini)** | External inference provider, selectable via `LLM_PROVIDER`. Used unconditionally for natural-language explanation generation, and optionally for resume-text extraction (`PARSER_BACKEND=llm`) — never for scoring or ranking. | Implemented (integration point) |
+| Client (static multi-page web client: HTML + Bootstrap 5 + vanilla JS) | Upload, dashboard (profile, matches, gaps, ATS), feedback controls; Premium badges and page-level tier checks. No business logic. | Implemented; Premium page guard planned |
+| Spring Boot backend | JWT auth, RBAC (`USER` / `PREMIUM_USER` / `ADMIN`), tier gating, orchestration (one ML call per upload), persistence, MinIO storage, EMA skill-vector job, weights snapshot export. | Implemented; gating + snapshot planned |
+| PostgreSQL + MinIO | Users, resume versions, parsed profiles (incl. ATS + explanation), roles, versioned skill vectors, recommendations, feedback; resume files. | Implemented (Flyway `V1`) |
+| Core engine / ML service | PDF extraction, section segmentation, dictionary + NER extraction, normalization, vector-table matching, ATS scoring, gap analysis, template explanation, engine fingerprint. Optional LLM narrative / extraction. | Implemented (current pipeline); restaging planned |
+| Google Vertex AI (Gemini) | Premium coaching narrative; extraction for the 22 non-engineering domains. Never scores or ranks. | Implemented |
+| Training pipeline | Cloud fine-tuning and distillation on GCP GPU instance; hashed ONNX release artifacts. | Planned (step 7) |
+| Community Edition packaging | Standalone offline Docker image and CLI. | Archived; see [`docs/archive/community-edition.md`](archive/community-edition.md) |
 
-## 2. Component responsibilities (ML Service — implemented today)
+## 2. Component responsibilities (ML service)
 
-This is the layer with real code, so its responsibilities map 1:1 to modules in `ml-service/app/`:
+Modules in `ml-service/app/`; `*` marks planned ones.
 
 | Module | Responsibility | LLM? |
 |---|---|---|
-| `routers/analyze.py` | HTTP surface: `POST /parse`, `/match`, `/ats-score`, `/analyze`. Thin — delegates immediately to services. | No |
-| `routers/upload.py` | HTTP surface: `POST /parse-file`. Dispatches to a `DocumentTextExtractor` by file extension, then calls `parser.parse_resume()` unchanged. | No |
-| `services/document_extraction/` | `DocumentTextExtractor` Protocol (`base.py`) + `PdfTextExtractor` (`pdf_extractor.py`, via `pdfplumber`) + `registry.py` (extension → extractor). Reorders a PDF's words into column-aware reading order before returning text, so a multi-column resume's sections aren't interleaved. Adding a new format (DOCX, etc.) is one new class + one registry entry. | No |
-| `services/parser.py` | Resume text → `ResumeProfile`. Routes to the local NER backend (default) or the LLM backend (`PARSER_BACKEND=llm`), per `Settings.parser_backend`. | **Opt-in** |
-| `services/local_ner_parser.py` | Default parsing backend: runs `yashpwr/resume-ner-bert-v2` (via `transformers`) fully offline, chunks long resumes (512-token model limit), clusters flat NER entity spans into `ExperienceEntry`/`EducationEntry` records, regex email/phone/date extraction. No API key, no network call. | No |
-| `services/normalizer.py` | Raw skill string → canonical taxonomy entry, via a variant→canonical lookup built from `data/skill_taxonomy.json`. Unknown skills pass through unchanged (title case preserved) rather than being dropped. | No |
-| `services/embeddings.py` | Thin wrapper over `sentence-transformers` (`all-MiniLM-L6-v2`, lazily loaded and cached via `lru_cache`). Provides `embed()` and `cosine_similarity()`. | No (local model, not an LLM) |
-| `services/matcher.py` | Embeds the candidate's normalized skill set and each curated role's skill set (`data/role_skills.json`), ranks roles by cosine similarity, partitions each role's skills into matched/missing. | No |
-| `services/ats_score.py` | Rule-based ATS compatibility score: contact info regex checks, required section headers, minimum word count, optional keyword coverage against target keywords. Every point is traceable to one named `AtsCheck`. | No |
-| `services/gap_analysis.py` | Derives `GapAnalysis` rows directly from the matcher's `missing_skills` — no independent computation. | No |
-| `services/explainer.py` | Turns the four computed outputs (profile, ATS score, matches, gaps) into 2–4 coaching paragraphs. System prompt explicitly forbids recomputing/second-guessing the scores or rewriting resume content. | **Yes** |
-| `services/llm_client.py` | `LLMClient` Protocol + `GroqLLMClient`/`GeminiLLMClient` implementations, selected by `Settings.llm_provider`. Both `parser.py` (opt-in path) and `explainer.py` depend on the Protocol, not a concrete SDK — this is what makes them unit-testable with a `FakeLLMClient` and no network access (see `tests/test_pipeline.py`, `tests/test_llm_client.py`). | — (abstraction) |
-| `config.py` | `pydantic-settings`-based config: `PARSER_BACKEND`, `NER_MODEL_NAME`, `LLM_PROVIDER`, `GROQ_API_KEY`/`GROQ_MODEL`, `GEMINI_API_KEY`/`GEMINI_MODEL`, `EMBEDDING_MODEL`, loaded from `.env`. | — |
+| `routers/analyze.py` | `POST /parse`, `/match`, `/ats-score`, `/analyze`. Thin; delegates to services. | No |
+| `routers/upload.py` | `POST /parse-file`, `/analyze-file`. Dispatches to a `DocumentTextExtractor` by extension. | No |
+| `services/document_extraction/` | `DocumentTextExtractor` Protocol + `PdfTextExtractor` (pdfplumber, column-aware) + registry. | No |
+| `services/sectioner.py`* | Heading-based segmentation into Skills / Experience / Education / other; whole-text fallback. | No |
+| `services/dictionary_skills.py`* | Aho-Corasick match of taxonomy variants over the text; deterministic, linear time. | No |
+| `services/parser.py` | Text → `ResumeProfile`; routes to local NER (default) or LLM (`PARSER_BACKEND=llm`). | Opt-in |
+| `services/local_ner_parser.py` | Runs the pinned NER model on the Experience/Education sections*, chunked under the 512-token limit; clusters flat entities into records; regex email/phone/dates. | No |
+| `services/normalizer.py` | Raw skill → canonical taxonomy entry. | No |
+| `services/embeddings.py` | sentence-transformers wrapper; at runtime only for out-of-taxonomy skills once vectors are precomputed*. | No |
+| `services/matcher.py` | Candidate vector vs. each role vector (precomputed table*, weights snapshot*), cosine similarity, round to 2 dp before sort*, tie-break by role name*; matched/missing as exact set ops. | No |
+| `services/ats_score.py` | Rule-based ATS rubric; every point traceable to a named check. | No |
+| `services/gap_analysis.py` | Projects `missing_skills` per matched role. | No |
+| `services/explainer.py` | `TemplateExplainer`* (default) renders matched/missing + ATS breakdown; `LLMExplainer` for `explainer=llm`. Neither can change a number. | Only `llm` |
+| `services/llm_client.py` | `LLMClient` Protocol + `GroqLLMClient` / `GeminiLLMClient`. | n/a |
+| `config.py` | Settings; `ENGINE_VERSION`* and `engine_fingerprint`* (engine version + hashes of NER model, vector table, taxonomy, weights snapshot). | n/a |
+| `scripts/precompute_vectors.py`* | Build-time embedding of every canonical skill and role → `data/*.npy` + sha256. | No |
+| `training/`* | `train_ner.py`, `train_embed.py`, dataset converters, `DATASETS.md`; separate requirements. | No |
 
-## 3. Key design decisions
+## 3. Design decisions
 
 ### 3.1 Deterministic core, narrow LLM footprint
-Every score or ranking the user sees is computed by plain code. Structured-field extraction from resume text runs on a local model by default — no LLM at all. The LLM's only unconditional job is turning structured results into prose; it remains available as an opt-in alternative for extraction. This directly implements SRS §2.5's constraint ("core matching and scoring logic must be deterministic and explainable") and is the system's answer to the comparable-systems gap cited in SRS §1.4 (static, unreproducible LLM-only matching) — and goes further than originally scoped, since even extraction no longer requires an LLM by default.
+Every score or ranking is computed by plain code and pinned local models. The LLM's only jobs are the Premium narrative and an opt-in extraction path (SRS §2.5, FR-5.3).
 
-### 3.2 LLM access behind a Protocol, not a concrete SDK
-`LLMClient` is a `typing.Protocol` with one method, `complete(system_prompt, user_prompt) -> str`. `explainer.py` (always) and `parser.py` (only when `PARSER_BACKEND=llm`) take an optional `client` parameter that defaults to `get_llm_client()` (a cached singleton, built as `GroqLLMClient` or `GeminiLLMClient` per `Settings.llm_provider`). This means: (a) the provider can be swapped without touching business logic, and (b) the full test suite runs with zero network access and no API key, using a `FakeLLMClient`.
+### 3.2 LLM access behind a Protocol
+`LLMClient.complete(system_prompt, user_prompt) -> str`; the full test suite runs with a `FakeLLMClient`, no network.
 
-### 3.2b Local resume parsing behind the same kind of seam
-`parser.parse_resume()` routes to `local_ner_parser.parse_resume_local()` (default) or the LLM path (`PARSER_BACKEND=llm`), mirroring 3.2's provider-behind-an-abstraction shape one level up: the *backend* for an entire capability (parsing), not just the LLM SDK within it, is swappable via config. `local_ner_parser.py` itself splits further into an impure layer (the real `transformers` NER pipeline, lazily built) and a pure layer (`_entities_to_profile`, the entity-clustering/assembly logic), so the clustering heuristics are unit-testable with hand-built entity lists and no model download (see `tests/test_local_ner_parser.py`).
+### 3.2b Parsing backend behind the same kind of seam
+`parser.parse_resume()` routes to `local_ner_parser` or the LLM path by config; the NER module separates the impure pipeline from the pure entity-clustering logic so heuristics are unit-testable without the model.
 
-### 3.2c File-format extraction behind an adapter interface
-`DocumentTextExtractor` (`document_extraction/base.py`) is a `Protocol` with one method, `extract(file_bytes) -> str`, implemented today by `PdfTextExtractor` and dispatched by file extension via `registry.py`. This is the same Open/Closed shape as 3.2/3.2b, applied to input file formats: adding DOCX support later is one new class implementing the Protocol plus one registry entry, never a change to `routers/upload.py` or the parsing pipeline downstream of it. Codified as a standing rule in the repo's `CLAUDE.md` ("Design principles"), not just followed once here.
+### 3.2c File format behind an adapter interface
+`DocumentTextExtractor` + registry; DOCX is one new class away.
+
+### 3.2d Explanation backend behind the same seam
+`Explainer` Protocol with `TemplateExplainer` (default) and `LLMExplainer`; the backend selects one per request according to tier. This lets Community and Web Free run with no API key, and lets Premium add prose without touching the score.
 
 ### 3.3 Two-stage skill matching: normalize, then embed
-Rather than embedding raw free-text skills directly, skills are first normalized against a canonical taxonomy (`skill_taxonomy.json`, currently ~variant-to-canonical mappings for common tech skills) and *then* embedded. This means "ReactJS", "React.js", and "reactjs" collapse to one canonical "React" before similarity is computed, and matched/missing-skill lists are computed as exact-string set operations against the canonical form — not fuzzy embedding distance — so the "why" behind a match is a literal list, not a black box.
+Skills are canonicalized before anything numeric happens; matched/missing lists are exact set operations, not fuzzy distances.
 
-### 3.4 Role vectors as the mean of per-skill embeddings
-`matcher.py` represents both a candidate and a role as the mean of the embedding vectors of their (normalized) skill lists, then ranks by cosine similarity between the two mean vectors. This is a simple, explainable content-based filtering approach — see [LLD](lld.md) §Matching algorithm for the exact computation and its complexity.
+### 3.4 Role vectors as the (weighted) mean of per-skill embeddings
+Candidate and role are each the mean of their skills' vectors; ranking by cosine similarity. With the weights snapshot the mean becomes weighted (FR-3.2).
 
 ### 3.5 Backend as orchestrator, not a second scoring engine
-The planned Spring Boot backend does not re-implement matching or scoring. Its job is auth, persistence, and calling the ML service — keeping the deterministic logic in exactly one place (NFR-5.1: "deterministic matching/scoring logic and the LLM-invocation logic shall be implemented as separable modules to allow independent testing").
+The backend calls `/analyze-file` once per upload and persists the result; deterministic logic lives in exactly one place (NFR-5.1).
 
-### 3.6 Temporal skill-vector store (planned)
-Static cosine-similarity matching — the exact limitation the SRS calls out in comparable systems (§1.4) — is addressed by versioning each role's skill-weight vector and updating it with an exponential moving average (`new_weight = α × new_signal + (1 − α) × old_weight`) whenever new job-market data or "helpful/not helpful" user feedback arrives. Prior versions are retained for auditability. See [Database Schema](database-schema.md) for the table design and [Process Flow](process-flow.md) for the update sequence.
+### 3.6 Temporal skill-vector store (implemented)
+`SkillVectorService` applies `new = α·signal + (1−α)·old` (α = `app.skill-vector.alpha`, default 0.3) once a role passes `app.skill-vector.feedback-threshold` helpful/not-helpful votes. Every update inserts a new versioned row (`current` flag) and keeps the prior versions.
 
 ### 3.7 Graceful LLM degradation
-NFR-3.1: with the default configuration, an LLM outage doesn't affect parsing at all — `/parse`, `/parse-file`, `/match`, and `/ats-score` never call the LLM, so only `explainer.py`'s output is at risk. `/analyze` can be adapted to catch an `explainer` failure and return the rest of the payload with `explanation` empty. (If `PARSER_BACKEND=llm` is explicitly opted into, parsing itself becomes dependent on the LLM again — a deliberate tradeoff for whoever needs that path's extra accuracy on some fields.)
+An LLM outage cannot affect a score; with the template default it cannot affect Community or Web Free at all.
+
+### 3.8 One core engine, three editions
+Every edition runs a single versioned artifact (code + hashed models + taxonomy + vector tables + weights snapshot). Every response carries `engine_fingerprint`; a golden suite executed inside the Community image and against the Web Free API must match before a release ships (FR-11.x). Premium only adds fields.
+
+### 3.9 Precompute the finite side of the match
+Because the matcher only sees canonical skills, all skill and role vectors are computed at build time and shipped as constants. The embedding model leaves the hot path and cross-CPU drift leaves the matcher. Rounding to 2 dp before sorting, plus a deterministic tie-break, covers the remaining numeric paths (FR-3.5, FR-3.6).
+
+### 3.10 Tier gating at the module boundary
+`SecurityConfig` decides only whether a request is authenticated; which role an endpoint needs is declared on that endpoint with `@PreAuthorize` (already the pattern for `POST /roles/{id}/skill-vectors/recompute`). A `FeatureFlags` service maps the caller's role to `explainer=template|llm`, history limit and export rights; the backend passes those flags to the ML service per request (FR-12.x).
+
+### 3.11 Model releases are gated and shared
+Training happens offline; a new model ships only if held-out quality is not below the previous release and the golden suite is regenerated and reviewed. All editions receive the same model at the same precision (FR-13.x).
 
 ## 4. Interfaces between layers
 
 | From → To | Protocol | Payload | Auth |
 |---|---|---|---|
-| Client → Backend | HTTPS / REST | JSON | JWT bearer token |
-| Backend → ML Service | HTTP / REST (internal network) | JSON | none (internal, planned) |
-| Backend → PostgreSQL | JDBC | SQL | DB credentials (env/secrets) |
-| ML Service → PostgreSQL | Python DB driver (planned, once ML service reads taxonomy/roles from DB instead of JSON files) | SQL | DB credentials (env/secrets) |
-| ML Service → LLM API (Groq or Gemini) | HTTPS / REST | JSON (chat completion) | API key (env var, never committed) |
+| Client → Backend | HTTPS / REST | JSON | JWT bearer |
+| Backend → ML Service | HTTP multipart (internal), `POST /analyze-file?top_n=N&explainer=template|llm`* | JSON | none (internal network) |
+| Community CLI → ML Service | in-process / `localhost:8000` | JSON, HTML report | none |
+| Backend → PostgreSQL | JDBC (Flyway-managed schema) | SQL | env credentials |
+| Backend → MinIO | S3 API | object bytes | env credentials |
+| ML Service → LLM API | HTTPS / REST (only when `explainer=llm` or `PARSER_BACKEND=llm`) | JSON | API key (env) |
+| Training → ML Service | files: hashed ONNX models, `vectors.sha256`, `weights_snapshot.json` | n/a | n/a |
 
 ## 5. Non-functional design targets
 
-Carried straight from SRS §5 into the design so they stay traceable:
+Carried from [SRS §5](srs.md#5-non-functional-requirements):
 
-- **Performance:** resume parsing ≤ 15s for a file up to 5 MB (NFR-1.1); recommendation computation over ≤ 100 roles ≤ 2s (NFR-1.2).
-- **Security:** JWT sessions ≤ 24h (NFR-2.1); passwords salted+hashed, e.g. bcrypt (NFR-2.2); HTTPS/TLS everywhere (NFR-2.3); secrets via env vars only (NFR-2.4) — already followed in `ml-service/.env.example`.
-- **Scalability:** backend stateless where feasible (NFR-4.1).
-- **Maintainability:** deterministic logic and LLM-invocation logic in separable, independently testable modules (NFR-5.1) — already true of `ml-service/app/services/*`.
-- **Usability:** first upload-to-recommendation view in ≤ 3 user actions (NFR-6.1).
-- **Privacy:** resumes contain PII; not used to train third-party models beyond the scoped API calls; users can request deletion (NFR-7.1, NFR-7.2).
+- Performance: parsing ≤ 15 s (NFR-1.1); matching over ≤ 100 roles ≤ 2 s (NFR-1.2); Community ≤ 3 s and ≤ 1.5 GB RSS per two-page resume on 2 cores / 4 GB (NFR-1.3), measured by `scripts/bench.py`.
+- Security: JWT ≤ 24 h; bcrypt; TLS; secrets in env only (NFR-2.x).
+- Reliability: an LLM outage never fails a request (NFR-3.1); the engine runs with zero network (NFR-3.2).
+- Scalability: stateless backend (NFR-4.1).
+- Maintainability: deterministic and LLM modules are separable (NFR-5.1); the runtime image carries no training dependencies (NFR-5.2).
+- Usability: ≤ 3 actions to a recommendation (NFR-6.1); Community runs with one `docker run` (NFR-6.2).
+- Privacy: PII is never used to train third-party models (NFR-7.1); deletion on request (NFR-7.2); Community sends no telemetry (NFR-7.3).
+- Reproducibility: identical output across editions and CPU architectures for the same fingerprint (NFR-8.1 and 8.2).
 
 ## Related documents
 
-- [System Architecture](architecture.md)
-- [Low-Level Design](lld.md)
-- [Abstraction Overview](abstraction-overview.md)
-- [Tech Stack](tech-stack.md)
+- [System Architecture](architecture.md) · [Editions & Parity](editions-and-parity.md) · [Low-Level Design](lld.md)
+- [Abstraction Overview](abstraction-overview.md) · [Tech Stack](tech-stack.md) · [SRS v2.0](srs.md)

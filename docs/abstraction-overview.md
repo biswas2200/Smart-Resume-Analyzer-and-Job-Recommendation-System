@@ -1,19 +1,21 @@
-# Abstraction Overview
+# Abstraction overview
 
-This document sits above [Architecture](architecture.md) and [HLD](hld.md): instead of describing components, it describes the *abstractions* the system is built from — the boundaries that make it possible to reason about, test, and extend each piece in isolation. Understanding these abstractions is the fastest way to understand why the codebase is organized the way it is.
+This page sits above [Architecture](architecture.md) and [HLD](hld.md). It describes the abstractions the system is built from: the boundaries that let each piece be reasoned about, tested and extended on its own. They explain why the codebase is organized the way it is.
 
 ## 1. The market gap this project targets
 
-Per the SRS (§1.4, §2.1), this project exists because of a specific, named gap in comparable systems:
+Per the SRS (§1.4, §2.1), this project fills a specific gap in comparable systems:
 
-- **Recruiter-facing AI screening platforms** (HireVue, Eightfold AI, iCIMS) solve a different problem for a different user — employers screening candidates at scale, not a candidate improving their own materials.
-- **Academic "resume analyser" projects** typically wrap a single chat-style LLM prompt around the entire task. The result: one pass, no reproducibility (ask twice, get two different scores), no explainability (there's no way to point at *why* a number is what it is), and no mechanism to improve as the job market changes — a limitation explicitly documented in "An AI-Driven Resume Analyser with Job Recommender and Portfolio Code Generator" (IJRASET, April 2026), cited in the SRS as the direct point of comparison.
+- Recruiter-facing AI screening platforms (HireVue, Eightfold AI, iCIMS) solve a different problem for a different user: employers screening candidates at scale. This project serves a candidate improving their own materials.
+- Academic "resume analyser" projects typically wrap a single chat-style LLM prompt around the entire task. That gives one pass, no reproducibility (ask twice, get two different scores), no explainability (no way to point at why a number is what it is), and no way to improve as the job market changes. "An AI-Driven Resume Analyser with Job Recommender and Portfolio Code Generator" (IJRASET, April 2026), which the SRS cites as the direct point of comparison, documents this limitation explicitly.
 
-This system's answer is two abstractions, described below: a **deterministic core / narrow-LLM boundary**, and a **temporal, versioned weight store** instead of a static one.
+- Open-source self-hosted resume tools (Resume-Matcher, Reactive Resume, OpenResume) either have no product tiers at all, or let their score depend on whichever LLM each user configured, so two installations never agree.
 
-## 2. Abstraction 1 — The deterministic core / LLM boundary
+This system answers with three abstractions, described below: a boundary between the deterministic core and a narrow LLM role; a temporal, versioned weight store in place of a static one; and one core-engine artifact shared by every edition, so a self-hosted run and the hosted free tier are provably the same computation.
 
-The system is understood as **three** kinds of computation now, not two — a local ML model sits between the deterministic core and the LLM boundary, handling structured extraction without either hand-written rules or an external API:
+## 2. Abstraction 1: the deterministic core / LLM boundary
+
+The system has three kinds of computation. Between the deterministic core and the LLM sits a local ML model, which handles structured extraction without hand-written rules or an external API:
 
 ```mermaid
 flowchart LR
@@ -26,23 +28,23 @@ flowchart LR
     end
     subgraph LLMB["LLM-scoped boundary\n(behind LLMClient Protocol)"]
         l1["f(resume_text) -> structured JSON\nextraction, opt-in alternative to LocalML"]
-        l2["f(scores) -> prose\nexplanation only, cannot alter scores"]
+        l2["f(scores) -> prose\nPremium narrative / opt-in; cannot alter scores"]
     end
     Det -. "LLM never appears\nin this box's logic" .-> Det
     LocalML -. "no network call,\nno API key needed" .-> LocalML
     LLMB -. "LLM output is data,\nnever a decision" .-> LLMB
 ```
 
-The abstraction boundary is enforced two ways in the actual code, not just by convention:
+The code enforces the boundary in two ways:
 
-1. **Module boundary.** `normalizer.py`, `matcher.py`, `ats_score.py`, and `gap_analysis.py` have zero imports of `llm_client.py`, `local_ner_parser.py`, or any LLM/NER SDK. `explainer.py` is the only module that unconditionally touches an `LLMClient`; `parser.py` touches `local_ner_parser.py` by default and `llm_client.py` only when `PARSER_BACKEND=llm`.
-2. **Interface boundary.** `LLMClient` is a `typing.Protocol` — `parser.py`'s opt-in path and `explainer.py` depend on an abstract `.complete(system_prompt, user_prompt) -> str` shape, not on a concrete SDK's types (`GroqLLMClient`/`GeminiLLMClient` both implement it). This is what lets the test suite (`tests/test_pipeline.py`, `tests/test_llm_client.py`) substitute a `FakeLLMClient` and run fully offline. `local_ner_parser.py` uses the same seam at a smaller scale: `parse_resume_local()` takes an injectable pipeline callable, so its entity-clustering logic (`tests/test_local_ner_parser.py`) is testable without downloading the real model either.
+1. Module boundary. `normalizer.py`, `matcher.py`, `ats_score.py`, and `gap_analysis.py` have zero imports of `llm_client.py`, `local_ner_parser.py`, or any LLM/NER SDK. `explainer.py` is the only module that unconditionally touches an `LLMClient`; `parser.py` touches `local_ner_parser.py` by default and `llm_client.py` only when `PARSER_BACKEND=llm`.
+2. Interface boundary. `LLMClient` is a `typing.Protocol`: `parser.py`'s opt-in path and `explainer.py` depend on an abstract `.complete(system_prompt, user_prompt) -> str` shape, not on a concrete SDK's types (`GroqLLMClient`/`GeminiLLMClient` both implement it). That lets the test suite (`tests/test_pipeline.py`, `tests/test_llm_client.py`) substitute a `FakeLLMClient` and run fully offline. `local_ner_parser.py` uses the same seam at a smaller scale: `parse_resume_local()` takes an injectable pipeline callable, so its entity-clustering logic (`tests/test_local_ner_parser.py`) is testable without downloading the real model either.
 
-**Why this matters as an abstraction, not just an implementation detail:** it means the *cost* of using an LLM (non-determinism, latency, external dependency, price) is paid, by default, for exactly one task — writing readable prose from already-computed numbers. Structured extraction, despite being a genuinely NLP task, is handled by a local model instead, so the *only* thing that still costs money/network/an API key by default is explanation generation. The LLM remains available as an opt-in extraction path for cases the local model handles poorly.
+The point of the boundary is that the cost of using an LLM (non-determinism, latency, external dependency, price) is paid only where a user has chosen it: the Premium narrative or the opt-in extraction path. With the planned `TemplateExplainer` as the default (step 1), the deterministic core plus the local NER model produce a complete result with no network and no API key. That is the precondition for the Community Edition and for result parity with Web Free. The boundary is strict because of research on LLM judges (see [Editions & Parity §6](editions-and-parity.md#6-research-behind-the-design)): identical resumes get different scores from the same model even at temperature 0, and three LLMs disagreed on 39 % of resumes.
 
-## 3. Abstraction 2 — Skills as a normalized, versioned vector space
+## 3. Abstraction 2: skills as a normalized, versioned vector space
 
-Rather than treating "skills" as free text everywhere, the system funnels all skill data through one canonical representation before it's ever compared:
+All skill data goes through one canonical representation before anything is compared:
 
 ```mermaid
 flowchart LR
@@ -53,14 +55,14 @@ flowchart LR
 
 Two sub-abstractions stack here:
 
-- **Canonicalization** (`normalizer.py`) collapses spelling/casing variance *before* anything numeric happens, so matched/missing-skill lists stay exact and human-readable rather than "similar-ish embedding distance."
-- **Vectorization** (`embeddings.py`) is the only place floating-point, model-dependent computation enters the pipeline — isolated behind two functions (`embed`, `cosine_similarity`) so the underlying model could be swapped without touching `matcher.py`'s ranking logic.
+- Canonicalization (`normalizer.py`) collapses spelling and casing variants before anything numeric happens, so matched/missing-skill lists stay exact and human-readable instead of becoming fuzzy embedding distances.
+- Vectorization (`embeddings.py`) is the only place where floating-point, model-dependent computation enters the pipeline. It sits behind two functions (`embed`, `cosine_similarity`), so the model can be swapped without touching `matcher.py`'s ranking logic. Planned for step 2: because the matcher only sees canonical skills, every skill and role vector is computed once at build time and shipped as a constant table (`skill_vectors.npy`, `role_vectors.npy`), and the model runs only for out-of-taxonomy skills. Constant vectors cannot drift between CPUs, and the remaining cosine arithmetic is rounded to two decimals before ranking, with a deterministic tie-break.
 
-**Temporal extension (planned):** today a role's skill vector is the mean of its (static) curated skill list's embeddings, recomputed fresh each time. The planned `SkillVector` table (see [Database Schema](database-schema.md)) turns this into a **versioned, time-decayed store** — each role's weight vector persists across requests and updates via EMA (`new_weight = α·new_signal + (1−α)·old_weight`) as new market data or feedback arrives, with every prior version retained. This is the abstraction that makes matching improve over time instead of staying frozen at whatever the curated dataset looked like on day one.
+Temporal extension (implemented in the backend; the matcher reading it is planned). The `skill_vectors` table (see [Database Schema](database-schema.md)) is a versioned, time-decayed store. Each role's weights are updated by EMA (`new_weight = α·new_signal + (1−α)·old_weight`) as feedback arrives, and every prior version is kept. Step 3 closes the loop: the backend exports the current weights as a hashed snapshot, the matcher uses a weighted mean, and the snapshot ships inside every edition's engine artifact. An offline Community user therefore gets weights learned from web feedback, and Web Free stays byte-comparable with Community because both read the same frozen snapshot. Only Web Premium may use live weights, and the response says so when it does.
 
-## 4. Abstraction 3 — File format behind an adapter interface
+## 4. Abstraction 3: file format behind an adapter interface
 
-`POST /parse-file` needs to turn a resume *file* (PDF today, other formats later) into the same plain text the rest of the pipeline already consumes. Rather than special-casing PDF logic inside the router, that responsibility sits behind `DocumentTextExtractor` (`document_extraction/base.py`), a `typing.Protocol` with one method (`extract(file_bytes) -> str`), implemented today by `PdfTextExtractor` and dispatched by file extension via `registry.py`.
+`POST /parse-file` turns a resume file (PDF today, other formats later) into the same plain text the rest of the pipeline already consumes. The router holds no PDF-specific logic. That job sits behind `DocumentTextExtractor` (`document_extraction/base.py`), a `typing.Protocol` with one method (`extract(file_bytes) -> str`), implemented today by `PdfTextExtractor` and picked by file extension in `registry.py`.
 
 ```mermaid
 flowchart LR
@@ -70,32 +72,56 @@ flowchart LR
     pdf -->|text, correct reading order| parser["parser.py\n(unchanged)"]
 ```
 
-This is the same interface-boundary pattern as `LLMClient` (Abstraction 1), applied one layer earlier in the pipeline: adding a new file format means writing one new class that implements `DocumentTextExtractor` and adding one line to the registry's dictionary — `routers/upload.py` and everything downstream of text extraction never change. It's why the PDF-specific complexity (detecting and correcting for multi-column layouts, so a resume's sections don't get interleaved before parsing ever sees the text) is fully contained inside `pdf_extractor.py` and invisible to the rest of the system. This pattern is now a standing project rule, not a one-off choice — see `CLAUDE.md`, "Design principles".
+This is the same interface-boundary pattern as `LLMClient` (Abstraction 1), one layer earlier in the pipeline. A new file format means one new class that implements `DocumentTextExtractor` and one line in the registry's dictionary; `routers/upload.py` and everything after text extraction stay the same. It also keeps the PDF-specific complexity (detecting and correcting for multi-column layouts, so a resume's sections don't get interleaved before parsing sees the text) inside `pdf_extractor.py`, invisible to the rest of the system. The pattern is a standing project rule; see `CLAUDE.md`, "Design principles".
 
-## 5. Abstraction 4 — Layered request handling
+## 5. Abstraction 4b: one engine, three editions
 
-Standard three-tier separation, but worth stating explicitly since it's what keeps the ML service testable without a running server or database:
+The product ships as a Community Docker image, a hosted Free tier and a hosted Premium tier. All three run one core-engine artifact (code, pinned models by content hash, taxonomy, vector tables, weights snapshot, ATS rules, template explainer), so there are no separate codebases or configurations to drift apart. Each edition is that artifact plus a layer that adds features around the score:
+
+```mermaid
+flowchart LR
+    CORE["core engine X.Y.Z\n→ score + engine_fingerprint"]
+    CE["Community\n+ CLI, offline"]
+    WF["Web Free\n+ accounts, history(3)"]
+    WP["Web Premium\n+ LLM narrative, live weights,\nrerank, exports"]
+    CORE --> CE
+    CORE --> WF
+    CORE --> WP
+```
+
+Three rules, each enforced mechanically, keep the editions identical:
+
+1. Nothing on the score path is downloaded or called at runtime. The Community image runs with `--network none`, and CI proves it.
+2. Every response carries `engine_fingerprint`, so a user can compare their local run with `GET /health` on the web and know whether the same engine produced both.
+3. A golden suite runs inside the Community image and against the deployed Web Free API before every release; a single differing byte blocks the tag.
+
+Premium features are additive fields (`explanation_source: "llm"`, a rerank list, a `weights: "live"` disclosure) on top of the identical base result. SonarQube, Semgrep and Plane use the same shape for their Community-vs-paid split; [Editions & Parity](editions-and-parity.md) has the details and sources.
+
+## 6. Abstraction 5: layered request handling
+
+A standard layered separation. It is what keeps the ML service testable without a running server or database:
 
 | Layer | Knows about | Does not know about |
 |---|---|---|
-| **Router** (`routers/analyze.py`, `routers/upload.py`) | HTTP request/response shapes (Pydantic models), which service to call | How any service computes its result |
-| **Service** (`services/*.py`) | Its one job (parse, normalize, match, score, explain) | HTTP, FastAPI, request/response wrapping |
-| **Schema** (`models/schemas.py`) | Field names, types, defaults — the data contract | Any business logic |
-| **Data** (`data/*.json`, planned DB) | Static/persisted values | How they're used |
+| Router (`routers/analyze.py`, `routers/upload.py`) | HTTP request/response shapes (Pydantic models), which service to call | How any service computes its result |
+| Service (`services/*.py`) | Its one job (parse, normalize, match, score, explain) | HTTP, FastAPI, request/response wrapping |
+| Schema (`models/schemas.py`) | Field names, types and defaults (the data contract) | Any business logic |
+| Data (`data/*.json`, planned DB) | Static/persisted values | How they're used |
 
-A consequence worth naming: every service function in `ml-service/app/services/` can be called directly in a test with plain Python values — no FastAPI `TestClient`, no HTTP round-trip required (see how `tests/test_ats_score.py`, `test_matcher.py`, `test_normalizer.py` all import and call service functions directly).
+As a result, every service function in `ml-service/app/services/` can be called directly in a test with plain Python values, without a FastAPI `TestClient` or an HTTP round-trip. `tests/test_ats_score.py`, `test_matcher.py` and `test_normalizer.py` all import and call service functions this way.
 
-## 6. Where the abstractions end and the roadmap begins
+## 7. Where the abstractions end and the roadmap begins
 
-The abstractions above hold for what's built (`ml-service/`). A few things are explicitly deferred, and knowing this boundary matters for anyone extending the system:
+The abstractions above hold for what's built (`ml-service/`, `backend/`, `frontend/`). What remains, in the order of [Editions & Parity §7](editions-and-parity.md#7-implementation-order):
 
-- **Persistence abstraction:** there is currently no repository/DAO layer — `normalizer.py` and `matcher.py` read JSON files directly via `DATA_DIR`. Once the backend exists, this should move behind a repository interface so the ML service can read from PostgreSQL without its callers changing.
-- **Orchestration abstraction:** today, `routers/analyze.py` *is* the orchestrator — it calls all five services directly in sequence. Once the Spring Boot backend exists, orchestration for anything involving persistence (resume versioning, recommendation storage, feedback-linked EMA updates) moves there, and the ML service becomes a stateless computation service the backend calls into — exactly matching the deployment view in [Architecture §4](architecture.md#4-deployment-view-demonstration-target).
-- **File-format coverage:** the adapter interface (Abstraction 3) is ready for more formats, but only `PdfTextExtractor` exists — DOCX and any richer upload validation/versioning (format/size checks, storage) remain backend-side, planned work.
+- Explainer seam and pinned models (step 1): `TemplateExplainer` as default, HF revisions pinned and exported to ONNX, 2-dp rounding, `engine_fingerprint`.
+- Pipeline restaging (step 2): sectioner, dictionary skills, NER scoped to two sections, precomputed vector tables. This is the change that makes a 2-core / 4 GB PC enough.
+- Snapshot contract (step 3): the file boundary between the backend's learned weights and the engine's matcher.
+- Community packaging (step 4), tier gating (step 5), golden parity CI (step 6), training pipeline (step 7).
+- Persistence abstraction (later): `normalizer.py` and `matcher.py` still read JSON files; admin-editable taxonomy (FR-2.3) and the ESCO migration move them behind a repository interface, still exported to files for the engine artifact.
+- File-format coverage (later): only `PdfTextExtractor` exists; DOCX is one adapter away.
 
 ## Related documents
 
-- [System Architecture](architecture.md)
-- [High-Level Design](hld.md)
-- [UML Diagrams](uml-diagrams.md)
-- [Entities & Fields](entities-and-fields.md)
+- [System Architecture](architecture.md) · [Editions & Parity](editions-and-parity.md)
+- [High-Level Design](hld.md) · [UML Diagrams](uml-diagrams.md) · [Entities & Fields](entities-and-fields.md) · [SRS v2.0](srs.md)

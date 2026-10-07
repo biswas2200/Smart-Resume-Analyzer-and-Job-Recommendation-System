@@ -2,8 +2,8 @@ site_name: Intelligent Resume Analyser — Documentation
 site_description: >-
   Architecture, design, and data-model documentation for the Intelligent
   Resume Analyser and Career Recommendation System.
-docs_dir: .
-site_dir: _site
+docs_dir: docs
+site_dir: site
 
 theme:
   name: material
@@ -37,8 +37,10 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - SRS: srs.md
   - Abstraction Overview: abstraction-overview.md
   - Architecture: architecture.md
+  - Editions & Parity: editions-and-parity.md
   - HLD: hld.md
   - LLD: lld.md
   - Use Case Diagram: use-case-diagram.md
@@ -50,3 +52,5 @@ nav:
   - Class Diagram: class-diagram.md
   - Entities & Fields: entities-and-fields.md
   - Tech Stack: tech-stack.md
+  - Datasets: datasets.md
+  - Archive: archive/community-edition.md
