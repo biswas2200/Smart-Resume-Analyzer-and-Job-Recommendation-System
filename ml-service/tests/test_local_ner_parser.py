@@ -1,12 +1,16 @@
 """Tests local_ner_parser.py -- the zero-external-API resume parsing
 backend. Every test here works with hand-built NER entity lists or a fake
 pipeline callable, so the suite never downloads or runs the real
-yashpwr/resume-ner-bert-v2 model.
+yashpwr/resume-ner-bert model.
 """
 
+from app.models.schemas import EducationEntry
 from app.services.local_ner_parser import (
     _chunk_text,
     _entities_to_profile,
+    _extract_name,
+    _fill_education_institutions,
+    _fill_education_years,
     parse_resume_local,
 )
 
@@ -216,3 +220,272 @@ def test_parse_resume_local_merges_entities_across_chunks():
     assert len(profile.experience) == 1
     assert profile.experience[0].title == "Engineer"
     assert profile.experience[0].organization == "Acme Corp"
+
+
+# --- Sectioning + dictionary skills integration (FR-1.6/FR-1.7) -----------
+
+
+def test_parse_resume_local_scopes_ner_to_experience_and_education_when_headings_present():
+    seen_chunks: list[str] = []
+
+    def fake_pipeline(chunk_text: str) -> list[dict]:
+        seen_chunks.append(chunk_text)
+        return []
+
+    text = "\n".join(
+        [
+            "Jane Doe",
+            "Skills",
+            "Python, SQL",
+            "Experience",
+            "Backend Engineer at Acme Corp",
+            "Education",
+            "B.Tech Computer Science, IIT Bombay",
+        ]
+    )
+
+    parse_resume_local(text, ner_pipeline=fake_pipeline)
+
+    combined = " ".join(seen_chunks)
+    assert "Backend Engineer" in combined
+    assert "IIT Bombay" in combined
+    # The Skills section and the un-sectioned "Jane Doe" line must not reach
+    # the NER model at all once real headings are present -- dictionary
+    # matching covers skills instead (see the merge test below).
+    assert "Jane Doe" not in combined
+    assert "Python, SQL" not in combined
+
+
+def test_parse_resume_local_falls_back_to_whole_text_when_no_headings_are_recognized():
+    seen_chunks: list[str] = []
+
+    def fake_pipeline(chunk_text: str) -> list[dict]:
+        seen_chunks.append(chunk_text)
+        return []
+
+    text = "Jane Doe, Backend Engineer at Acme Corp, Python and SQL."
+
+    parse_resume_local(text, ner_pipeline=fake_pipeline)
+
+    assert " ".join(seen_chunks) == text
+
+
+# --- Graduation year fallback (_fill_education_years) ---------------------
+# The NER model is weak at "Graduation Year" on real resumes (21% token F1
+# across 220 resumes, see ml-service/scripts/evaluate_ner_extraction.py); this regex fallback exists
+# to fill that gap entirely, not to refine an existing signal.
+
+
+def test_fill_education_years_fills_a_single_entry_from_the_section_text():
+    education = [EducationEntry(degree="B.Sc", institution="", year="")]
+
+    result = _fill_education_years(education, "B.Sc Physics\n\nSome College\n\n2019")
+
+    assert result[0].year == "2019"
+
+
+def test_fill_education_years_assigns_years_positionally_across_multiple_entries():
+    education = [
+        EducationEntry(degree="PG-DAC", institution="", year=""),
+        EducationEntry(degree="B.E", institution="", year=""),
+    ]
+
+    result = _fill_education_years(education, "PG-DAC\n\nCDAC ACTS\n\n2017\n\nB.E\n\nSome University\n\n2016")
+
+    assert result[0].year == "2017"
+    assert result[1].year == "2016"
+
+
+def test_fill_education_years_does_not_overwrite_an_entry_that_already_has_a_year():
+    education = [EducationEntry(degree="B.Sc", institution="", year="2015")]
+
+    result = _fill_education_years(education, "B.Sc Physics\n\n2019")
+
+    assert result[0].year == "2015"
+
+
+def test_fill_education_years_leaves_entries_unfilled_when_no_year_is_present():
+    education = [EducationEntry(degree="B.Sc", institution="", year="")]
+
+    result = _fill_education_years(education, "B.Sc Physics with no year mentioned anywhere")
+
+    assert result[0].year == ""
+
+
+def test_fill_education_years_is_a_noop_for_empty_section_text():
+    education = [EducationEntry(degree="B.Sc", institution="", year="")]
+
+    result = _fill_education_years(education, "")
+
+    assert result[0].year == ""
+
+
+def test_fill_education_years_ignores_extra_years_beyond_the_entry_count():
+    education = [EducationEntry(degree="B.Sc", institution="", year="")]
+
+    result = _fill_education_years(education, "B.Sc\n\n2019\n\nSome unrelated later year 2021")
+
+    assert result[0].year == "2019"
+
+
+def test_parse_resume_local_fills_graduation_year_end_to_end_when_ner_never_predicts_one():
+    def fake_pipeline(chunk_text: str) -> list[dict]:
+        # Simulates the real model's behavior: it emits a Degree anchor but
+        # -- as is common on real resumes -- no Graduation Year entity.
+        return [_entity("Degree", "B.Sc Physics")]
+
+    text = "\n".join(["Education", "B.Sc Physics", "Some College", "2019"])
+
+    profile = parse_resume_local(text, ner_pipeline=fake_pipeline)
+
+    assert len(profile.education) == 1
+    assert profile.education[0].year == "2019"
+
+
+def test_parse_resume_local_merges_dictionary_skills_with_ner_detected_skills():
+    def fake_pipeline(chunk_text: str) -> list[dict]:
+        return [_entity("Skills", "Kubernetes")]
+
+    # "Python" only appears in a Skills section a headings-based NER pass
+    # would never see (see the scoping test above); dictionary_skills.py
+    # finds it anyway since it scans the whole resume text.
+    text = "\n".join(["Skills", "Python", "Experience", "Engineer at Acme Corp"])
+
+    profile = parse_resume_local(text, ner_pipeline=fake_pipeline)
+
+    assert "Python" in profile.skills
+    assert "Kubernetes" in profile.skills
+
+
+# --- Low-confidence entities ---------------------------------------------
+
+
+def test_entities_below_min_score_are_dropped():
+    entities = [
+        _entity("Designation", "Software Engineer"),
+        {"entity_group": "Degree", "word": "the", "score": 0.45, "start": 0, "end": 0},
+        {"entity_group": "Companies worked at", "word": "with", "score": 0.5, "start": 0, "end": 0},
+    ]
+
+    profile = _entities_to_profile(entities, "Software Engineer", min_score=0.6)
+
+    assert profile.education == []
+    assert [(e.title, e.organization) for e in profile.experience] == [("Software Engineer", "")]
+
+
+def test_default_min_score_keeps_low_confidence_entities():
+    # The measured default is 0.0: with per-word aggregation the
+    # low-confidence tail is mostly real titles/companies (see _MIN_ENTITY_SCORE).
+    entities = [{"entity_group": "Designation", "word": "Line Cook", "score": 0.41, "start": 0, "end": 0}]
+
+    profile = _entities_to_profile(entities, "Line Cook")
+
+    assert [e.title for e in profile.experience] == ["Line Cook"]
+
+
+# --- Chunking keeps line breaks ----------------------------------------------
+
+
+def test_chunk_text_keeps_newlines_inside_chunks():
+    long_text = "\n".join(f"line{i} word" for i in range(500))
+
+    chunks = _chunk_text(long_text, max_words=380, overlap_words=50)
+
+    assert len(chunks) > 1
+    assert chunks[0].startswith("line0 word\nline1 word\n")
+    assert "\n" in chunks[1]
+
+
+# --- Name (_extract_name) ------------------------------------------------------
+
+
+def test_extract_name_takes_the_first_line_when_it_looks_like_a_name():
+    assert _extract_name("Abhishek Jha\nApplication Development Associate - Accenture") == "Abhishek Jha"
+
+
+def test_extract_name_accepts_all_caps_and_accented_names():
+    assert _extract_name("  JOHN   SMITH  \nBackend Engineer") == "JOHN SMITH"
+    assert _extract_name("José García\nMadrid") == "José García"
+
+
+def test_extract_name_skips_title_lines_and_headings():
+    assert _extract_name("Curriculum Vitae\nPriya Sharma\npriya@example.com") == "Priya Sharma"
+    assert _extract_name("Senior Software Engineer\nExperience\nAcme") == ""
+
+
+def test_extract_name_rejects_lines_with_digits_or_email():
+    assert _extract_name("priya@example.com\n+91 98765 43210\nPune, India") == ""
+
+
+def test_parse_resume_local_finds_the_name_even_when_ner_only_sees_sections():
+    text = "\n".join(["Jane Doe", "Experience", "Backend Engineer at Acme Corp"])
+
+    profile = parse_resume_local(text, ner_pipeline=lambda chunk: [])
+
+    assert profile.name == "Jane Doe"
+
+
+# --- Institution fallback (_fill_education_institutions) ------------------------
+
+
+def test_fill_education_institutions_takes_the_institution_line():
+    education = [EducationEntry(degree="B.E in Information Science", institution="", year="")]
+
+    result = _fill_education_institutions(
+        education, "B.E in Information Science\nB.v.b college of engineering and technology\n2013 to 2017"
+    )
+
+    assert result[0].institution == "B.v.b college of engineering and technology"
+
+
+def test_fill_education_institutions_keeps_only_the_institution_part_of_a_line():
+    education = [EducationEntry(degree="B.Tech", institution="", year="")]
+
+    result = _fill_education_institutions(education, "B.Tech, Anna University, Chennai")
+
+    assert result[0].institution == "Anna University"
+
+
+def test_fill_education_institutions_splits_on_full_width_dash_and_colon():
+    education = [EducationEntry(degree="Bachelor of Science", institution="", year="")]
+
+    result = _fill_education_institutions(
+        education, "Master of Arts : Computer Graphics\nWSSS COLLEGE in Suwalki － City , State , Poland"
+    )
+
+    assert result[0].institution == "WSSS COLLEGE in Suwalki"
+
+
+def test_fill_education_institutions_trims_an_institution_folded_into_the_degree():
+    education = [
+        EducationEntry(
+            degree="Bachelor of Engg in Information Technology Shivaji University Kolhapur", institution="", year=""
+        )
+    ]
+
+    result = _fill_education_institutions(
+        education, "Bachelor of Engg in Information Technology\nShivaji University Kolhapur\n2017"
+    )
+
+    assert result[0].institution == "Shivaji University Kolhapur"
+    assert result[0].degree == "Bachelor of Engg in Information Technology"
+
+
+def test_fill_education_institutions_assigns_positionally_and_keeps_existing_values():
+    education = [
+        EducationEntry(degree="M.Tech", institution="IIT Bombay", year=""),
+        EducationEntry(degree="B.Tech", institution="", year=""),
+    ]
+
+    result = _fill_education_institutions(education, "M.Tech\nNIT Trichy\nB.Tech\nPSG College of Technology")
+
+    assert result[0].institution == "IIT Bombay"
+    assert result[1].institution == "NIT Trichy"
+
+
+def test_fill_education_institutions_ignores_words_that_only_contain_a_keyword():
+    education = [EducationEntry(degree="B.Sc", institution="", year="")]
+
+    result = _fill_education_institutions(education, "B.Sc\nschooling completed in 2015")
+
+    assert result[0].institution == ""

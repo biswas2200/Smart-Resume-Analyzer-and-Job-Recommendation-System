@@ -1,0 +1,143 @@
+"""The one analysis pipeline both routers run (POST /analyze with text,
+POST /analyze-file with a file): detect the domain, score ATS, then parse,
+match, find gaps and explain -- or lock the recommendations -- according to
+the detected domain's engine (data/domains.json), the caller's tier, and
+whether the caller may spend an AI extraction on this request.
+
+Who gets what:
+
+  domain engine | tier    | llm_allowed | what happens
+  --------------+---------+-------------+--------------------------------------
+  local         | free    | (ignored)   | local parse -> match -> gaps -> template
+  local         | premium | (ignored)   | same, but an LLM coaching narrative
+  llm           | premium | (always)    | LLM extraction -> match -> gaps -> LLM narrative
+  llm           | free    | true        | LLM extraction -> match -> gaps -> *template*
+  llm           | free    | false       | local profile card, ATS, locked ("ai_engine_required")
+
+The backend sets llm_allowed while a free account's monthly allowance lasts
+and counts a credit only when the response says ai_extraction_used -- so a
+cache hit (same resume again) is free for the user as it is for us. Two
+deployment-level locks come before any of that: LLM_PROVIDER=none (the
+Community Edition -- "community_edition") and the free tier's daily budget
+guard ("ai_budget_exhausted", never applied to premium). ATS scoring and
+domain detection are deterministic and run for everyone; the free tier
+never pays for a narrative. `engine` is read from the domain entry, so
+moving a domain onto the local pipeline later is a data change.
+"""
+
+from app.models.schemas import AnalyzeResponse, DomainDetection, LockReason, ResumeProfile, Tier
+from app.services import ats_score, gap_analysis, matcher
+from app.services.dictionary_skills import GENERAL_TAXONOMY_PATH, find_skills
+from app.services.domain_classifier import ENGINEERING_DOMAIN, detect_domain
+from app.services.explainer import explain_results
+from app.services.fingerprint import engine_fingerprint
+from app.services.llm_client import ledger, llm_available, usage_summary
+from app.services.normalizer import normalize_skills
+from app.services.parser import parse_resume
+
+LOCK_REASON_AI_ENGINE_REQUIRED: LockReason = "ai_engine_required"
+LOCK_REASON_COMMUNITY_EDITION: LockReason = "community_edition"
+LOCK_REASON_AI_BUDGET_EXHAUSTED: LockReason = "ai_budget_exhausted"
+
+
+def _parse_for_domain(resume_text: str, domain: DomainDetection) -> ResumeProfile:
+    """Profile extraction for one domain: the local NER path for local-engine
+    domains, the LLM extractor otherwise. Outside engineering the all-domain
+    dictionary hits are merged in and everything is normalized against both
+    taxonomies -- the same recall trick local_ner_parser.py uses with the
+    engineering dictionary, and what makes the locked profile card useful.
+    """
+    if domain.engine == "llm":
+        profile = parse_resume(resume_text, backend="llm", domain_name=domain.name)
+    else:
+        profile = parse_resume(resume_text)
+
+    if domain.domain != ENGINEERING_DOMAIN:
+        profile.skills = normalize_skills(
+            [*find_skills(resume_text, GENERAL_TAXONOMY_PATH), *profile.skills], include_general=True
+        )
+    return profile
+
+
+def _lock_reason(domain: DomainDetection, premium: bool, llm_allowed: bool) -> LockReason | None:
+    """Why this request cannot use the AI engine, or None if it can (or
+    does not need to). Checked in order of who is responsible: the
+    deployment, then the caller's tier/allowance, then the operator's budget.
+    """
+    if domain.engine != "llm":
+        return None
+    if not llm_available():
+        return LOCK_REASON_COMMUNITY_EDITION
+    if premium:
+        return None
+    if not llm_allowed:
+        return LOCK_REASON_AI_ENGINE_REQUIRED
+    if ledger.over_daily_budget():
+        return LOCK_REASON_AI_BUDGET_EXHAUSTED
+    return None
+
+
+def analyze_text(
+    resume_text: str, top_n: int = 3, tier: Tier = "free", llm_allowed: bool = False
+) -> AnalyzeResponse:
+    """Run the pipeline and, when it made any LLM calls, attach what they
+    cost (AnalyzeResponse.llm_usage) and whether a paid extraction ran
+    (ai_extraction_used) -- the latter is what the backend charges a free
+    account's allowance for."""
+    with ledger.request_scope() as llm_calls:
+        response = _analyze(resume_text, top_n, tier, llm_allowed)
+    if llm_calls:
+        response.llm_usage = usage_summary(llm_calls)
+        response.ai_extraction_used = any(
+            c.purpose == "extract" and not c.cache_hit for c in llm_calls
+        )
+    return response
+
+
+def _analyze(resume_text: str, top_n: int, tier: Tier, llm_allowed: bool) -> AnalyzeResponse:
+    domain = detect_domain(resume_text)
+    ats = ats_score.score_resume(resume_text)
+    premium = tier == "premium"
+    lock_reason = _lock_reason(domain, premium, llm_allowed)
+
+    if lock_reason is not None:
+        # The profile card still comes from the local extractor (never the
+        # LLM on a locked result); recommendations stay empty by design.
+        profile = parse_resume(resume_text)
+        profile.skills = normalize_skills(
+            [*find_skills(resume_text, GENERAL_TAXONOMY_PATH), *profile.skills], include_general=True
+        )
+        explanation = explain_results(
+            profile, ats, [], [], backend="template", domain=domain, locked=True, lock_reason=lock_reason
+        )
+        return AnalyzeResponse(
+            profile=profile,
+            domain=domain,
+            ats_score=ats,
+            matches=[],
+            gaps=[],
+            recommendations_locked=True,
+            lock_reason=lock_reason,
+            explanation=explanation.text,
+            explanation_source=explanation.source,
+            engine_fingerprint=engine_fingerprint(),
+        )
+
+    profile = _parse_for_domain(resume_text, domain)
+    matches = matcher.match_roles(profile.skills, top_n=top_n, domain=domain.domain)
+    gaps = gap_analysis.analyze_gaps(matches)
+    # Only Premium pays for a narrative; a free AI analysis gets the
+    # deterministic template over the AI-extracted profile.
+    explanation = explain_results(
+        profile, ats, matches, gaps, backend="llm" if premium else "template", domain=domain
+    )
+    return AnalyzeResponse(
+        profile=profile,
+        domain=domain,
+        ats_score=ats,
+        matches=matches,
+        gaps=gaps,
+        explanation=explanation.text,
+        explanation_source=explanation.source,
+        engine_fingerprint=engine_fingerprint(),
+    )

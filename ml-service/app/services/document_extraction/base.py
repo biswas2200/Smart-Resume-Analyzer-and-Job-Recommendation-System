@@ -22,6 +22,5 @@ class DocumentTextExtractor(Protocol):
 
 class UnsupportedDocumentTypeError(Exception):
     """Raised by registry.get_extractor_for_filename() when no extractor is
-    registered for a given file's extension (e.g. .docx, until a DOCX
-    extractor is added).
+    registered for a given file's extension (e.g. .doc or .odt).
     """

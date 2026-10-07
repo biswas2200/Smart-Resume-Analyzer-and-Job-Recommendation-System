@@ -7,11 +7,10 @@ functions analyze.py's text-based endpoints use.
 
 from fastapi import APIRouter, HTTPException, UploadFile
 
-from app.models.schemas import AnalyzeResponse, ParseResponse
-from app.services import ats_score, gap_analysis, matcher
+from app.models.schemas import AnalyzeResponse, ParseResponse, Tier
+from app.services import pipeline
 from app.services.document_extraction.base import UnsupportedDocumentTypeError
 from app.services.document_extraction.registry import get_extractor_for_filename
-from app.services.explainer import explain_results
 from app.services.parser import parse_resume
 
 router = APIRouter()
@@ -29,7 +28,7 @@ async def _extract_text(file: UploadFile) -> str:
 
 @router.post("/parse-file", responses={415: {"description": "Unsupported file type"}})
 async def parse_file(file: UploadFile) -> ParseResponse:
-    """Extract text from an uploaded resume file (PDF today; see
+    """Extract text from an uploaded resume file (see
     document_extraction/registry.py for what's supported) and run it
     through the existing parse_resume() pipeline unchanged.
     """
@@ -38,24 +37,18 @@ async def parse_file(file: UploadFile) -> ParseResponse:
 
 
 @router.post("/analyze-file", responses={415: {"description": "Unsupported file type"}})
-async def analyze_file(file: UploadFile, top_n: int = 3) -> AnalyzeResponse:
+async def analyze_file(
+    file: UploadFile, top_n: int = 3, tier: Tier = "free", llm_allowed: bool = False
+) -> AnalyzeResponse:
     """File-upload counterpart to POST /analyze: extract text the same way
-    parse_file() does, then run the exact same profile/ATS/match/gap/
-    explanation pipeline as analyze.py's analyze(), so a caller that only
-    has the raw file (e.g. the backend, which never sees resume text) gets
-    one round trip instead of extracting text itself.
+    parse_file() does, then run the exact same pipeline (services/
+    pipeline.py) as analyze.py's analyze(), so a caller that only has the
+    raw file (e.g. the backend, which never sees resume text) gets one round
+    trip instead of extracting text itself. `tier` and `llm_allowed` mirror
+    AnalyzeRequest's fields for JSON callers -- the backend passes the
+    caller's tier (free for USER, premium for PREMIUM_USER/ADMIN, FR-12.2)
+    and whether a free account still has an AI analysis left this month --
+    since a file upload has no JSON body to carry them in.
     """
     resume_text = await _extract_text(file)
-    profile = parse_resume(resume_text)
-    ats = ats_score.score_resume(resume_text)
-    matches = matcher.match_roles(profile.skills, top_n=top_n)
-    gaps = gap_analysis.analyze_gaps(matches)
-    explanation = explain_results(profile, ats, matches, gaps)
-
-    return AnalyzeResponse(
-        profile=profile,
-        ats_score=ats,
-        matches=matches,
-        gaps=gaps,
-        explanation=explanation,
-    )
+    return pipeline.analyze_text(resume_text, top_n=top_n, tier=tier, llm_allowed=llm_allowed)
