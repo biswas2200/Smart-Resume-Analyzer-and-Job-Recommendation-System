@@ -1,22 +1,26 @@
 package com.resumeanalyser.client;
 
 import com.resumeanalyser.client.dto.AnalyzeResponseDto;
+import com.resumeanalyser.client.dto.JdMatchRequestDto;
+import com.resumeanalyser.client.dto.JdMatchResponseDto;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 /**
- * Typed HTTP client wrapping calls to the ML service (see
- * {@code ml-service/app/routers/upload.py}). Only wraps {@code /analyze-file}
- * today, since that's the one call the rest of the backend actually needs --
- * a single round trip covering parsing, ATS scoring, role matching, gap
- * analysis, and explanation for an uploaded resume file.
+ * Typed HTTP client wrapping calls to the ML service: {@code /analyze-file}
+ * (see {@code ml-service/app/routers/upload.py}) -- a single round trip
+ * covering parsing, ATS scoring, role matching, gap analysis, and explanation
+ * for an uploaded resume file -- and {@code /match-jd}
+ * ({@code routers/analyze.py}), the Premium JD-targeted match over an
+ * already-extracted skill set.
  */
 @Component
 public class MlServiceClient {
@@ -35,12 +39,27 @@ public class MlServiceClient {
      *                  text extractor by extension (PDF today; see
      *                  {@code document_extraction/registry.py})
      * @param topN      how many top-matched roles to return
-     * @return the parsed profile, ATS score, role matches, skill gaps, and explanation
+     * @param tier      the requesting user's tier, {@code "free"} or
+     *                  {@code "premium"} (FR-12.2); the ML service combines it
+     *                  with the detected domain's engine to decide whether
+     *                  recommendations are unlocked and which explainer runs.
+     *                  The caller decides this per the uploading user's role,
+     *                  not this client
+     * @param llmAllowed whether this request may spend one paid AI extraction
+     *                  (true for Premium, and for a free account with an
+     *                  allowance left this month -- see
+     *                  {@link com.resumeanalyser.account.AiAllowanceService});
+     *                  the response's {@code ai_extraction_used} says whether
+     *                  it actually did
+     * @return the parsed profile, detected domain, ATS score, role matches, skill gaps, and explanation
      * @throws MlServiceException if the ML service is unreachable, or rejects the
      *                            request (e.g. an unsupported file format --
-     *                            see {@link MlServiceException#isUnsupportedFileType()})
+     *                            see {@link MlServiceException#isUnsupportedFileType()};
+     *                            or its LLM provider is unavailable --
+     *                            see {@link MlServiceException#isLlmUnavailable()})
      */
-    public AnalyzeResponseDto analyzeFile(byte[] fileBytes, String filename, int topN) {
+    public AnalyzeResponseDto analyzeFile(
+            byte[] fileBytes, String filename, int topN, String tier, boolean llmAllowed) {
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
         builder.part("file", new ByteArrayResource(fileBytes) {
             @Override
@@ -51,7 +70,11 @@ public class MlServiceClient {
 
         try {
             return restClient.post()
-                    .uri(uriBuilder -> uriBuilder.path("/analyze-file").queryParam("top_n", topN).build())
+                    .uri(uriBuilder -> uriBuilder.path("/analyze-file")
+                            .queryParam("top_n", topN)
+                            .queryParam("tier", tier)
+                            .queryParam("llm_allowed", llmAllowed)
+                            .build())
                     .contentType(MediaType.MULTIPART_FORM_DATA)
                     .body(builder.build())
                     .retrieve()
@@ -64,6 +87,41 @@ public class MlServiceClient {
                             : "The ML service rejected the request (" + e.getStatusCode() + ")",
                     unsupportedFileType,
                     e);
+        } catch (HttpServerErrorException e) {
+            if (e.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE) {
+                throw new MlServiceException(
+                        "The AI engine for this analysis is temporarily unavailable -- please try again later",
+                        false, true, e);
+            }
+            throw new MlServiceException("The ML service failed (" + e.getStatusCode() + ")", false, e);
+        } catch (ResourceAccessException e) {
+            throw new MlServiceException("Could not reach the ML service", false, e);
+        } catch (RestClientException e) {
+            throw new MlServiceException("The ML service call failed", false, e);
+        }
+    }
+
+    /**
+     * Scores an already-extracted skill set against one pasted job description
+     * (FR-8.2) -- deterministic on the ML side, no LLM involved.
+     *
+     * @param skills the candidate's skills as stored on their {@code ParsedProfile}
+     * @param jdText the job description, free text
+     * @param domain the resume's detected domain, for the closest-role hint
+     * @throws MlServiceException if the ML service is unreachable or rejects the request
+     */
+    public JdMatchResponseDto matchJd(java.util.List<String> skills, String jdText, String domain) {
+        try {
+            return restClient.post()
+                    .uri("/match-jd")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new JdMatchRequestDto(skills, jdText, domain))
+                    .retrieve()
+                    .body(JdMatchResponseDto.class);
+        } catch (HttpClientErrorException e) {
+            throw new MlServiceException("The ML service rejected the job description (" + e.getStatusCode() + ")", false, e);
+        } catch (HttpServerErrorException e) {
+            throw new MlServiceException("The ML service failed (" + e.getStatusCode() + ")", false, e);
         } catch (ResourceAccessException e) {
             throw new MlServiceException("Could not reach the ML service", false, e);
         } catch (RestClientException e) {

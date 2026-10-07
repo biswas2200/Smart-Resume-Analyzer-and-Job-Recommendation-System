@@ -10,4 +10,11 @@ public interface RecommendationRepository extends JpaRepository<Recommendation, 
 
     /** Every recommendation produced by one resume version's analysis run, best match first. */
     List<Recommendation> findByResumeOrderByMatchScoreDesc(Resume resume);
+
+    /**
+     * Removes every recommendation from one resume version's analysis run
+     * (their feedback rows go with them via the schema's ON DELETE CASCADE);
+     * used when a resume is re-analysed.
+     */
+    long deleteByResume(Resume resume);
 }

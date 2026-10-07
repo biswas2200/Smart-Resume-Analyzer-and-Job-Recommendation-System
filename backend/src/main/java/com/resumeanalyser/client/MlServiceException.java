@@ -9,6 +9,7 @@ package com.resumeanalyser.client;
 public class MlServiceException extends RuntimeException {
 
     private final boolean unsupportedFileType;
+    private final boolean llmUnavailable;
 
     /**
      * @param message             a human-readable description of what went wrong
@@ -17,12 +18,28 @@ public class MlServiceException extends RuntimeException {
      * @param cause               the underlying exception, if any
      */
     public MlServiceException(String message, boolean unsupportedFileType, Throwable cause) {
+        this(message, unsupportedFileType, false, cause);
+    }
+
+    /**
+     * @param llmUnavailable true if the ML service reported its LLM provider is
+     *                       unavailable (its {@code 503} -- Gemini on Vertex AI
+     *                       without a project id or Application Default
+     *                       Credentials); only Premium analyses can hit this
+     */
+    public MlServiceException(String message, boolean unsupportedFileType, boolean llmUnavailable, Throwable cause) {
         super(message, cause);
         this.unsupportedFileType = unsupportedFileType;
+        this.llmUnavailable = llmUnavailable;
     }
 
     /** Whether this failure was specifically the ML service rejecting the file's format. */
     public boolean isUnsupportedFileType() {
         return unsupportedFileType;
+    }
+
+    /** Whether this failure was the ML service's LLM provider being unavailable. */
+    public boolean isLlmUnavailable() {
+        return llmUnavailable;
     }
 }

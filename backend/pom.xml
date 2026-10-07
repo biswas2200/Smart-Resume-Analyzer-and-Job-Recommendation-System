@@ -21,6 +21,7 @@
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <minio.version>8.5.17</minio.version>
+        <springdoc.version>2.6.0</springdoc.version>
     </properties>
 
     <dependencies>
@@ -50,9 +51,22 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
+            <!-- Spring's RestClient + MultipartBodyBuilder (MlServiceClient.analyzeFile)
+                 needs reactor-core on the classpath to serialize a multipart body, even
+                 though this app makes no other reactive/WebFlux calls: a well-known
+                 Spring Framework gotcha, not an actual reactive dependency of this app. -->
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
             <version>${minio.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>

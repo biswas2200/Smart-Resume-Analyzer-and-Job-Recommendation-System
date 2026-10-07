@@ -14,4 +14,11 @@ public interface SkillVectorRepository extends JpaRepository<SkillVector, UUID> 
 
     /** Every currently-active skill weight for a role -- one row per distinct skill. */
     List<SkillVector> findByRoleAndCurrentTrue(Role role);
+
+    /**
+     * Every currently-active skill weight across every role, for the
+     * role-spanning weights snapshot export (FR-7.5, see
+     * {@code SkillVectorSnapshotService}).
+     */
+    List<SkillVector> findByCurrentTrue();
 }

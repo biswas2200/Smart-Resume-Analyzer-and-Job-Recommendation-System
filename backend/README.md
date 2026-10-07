@@ -8,14 +8,13 @@ recommendations and feedback.
 
 | Module | Endpoints | Notes |
 |---|---|---|
-| `auth` | `POST /auth/register`, `POST /auth/login` | Stateless JWT, bcrypt passwords, RBAC roles |
-| `resume` | `POST /resumes`, `GET /resumes`, `GET /resumes/{id}/profile` | Validates + stores the file, calls the ML service's `POST /analyze-file` once per upload |
-| `recommendation` | `GET /recommendations/dashboard` | Composite read view assembled from the latest resume's persisted analysis |
-| `feedback` | `POST /feedback`, `GET /feedback/{recommendationId}` | Helpful/not-helpful verdicts (FR-10.1) |
+| `auth` | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | Stateless JWT, bcrypt passwords, RBAC roles; `/me` reads the role fresh from the database so an upgrade is visible immediately. Emails in `APP_ADMIN_EMAILS` become ADMIN on register/login |
+| `admin` | `GET /admin/users?email=`, `PATCH /admin/users/{id}/role` (ADMIN only) | The MVP's upgrade path — no payments, an admin sets `USER` / `PREMIUM_USER` / `ADMIN` |
+| `resume` | `POST /resumes`, `GET /resumes`, `GET /resumes/{id}/profile`, `POST /resumes/{id}/reanalyze` | Validates + stores the file (PDF or DOCX), calls the ML service's `POST /analyze-file?tier=free\|premium` once per upload; `reanalyze` re-reads the stored file and re-runs it at the account's current tier (how a new Premium account unlocks a locked domain) |
+| `recommendation` | `GET /recommendations/dashboard` | Composite read view assembled from the latest resume's persisted analysis: detected domain, ATS score, roles (or a lock with `lockReason`), explanation, the user's tier |
+| `feedback` | `POST /feedback`, `GET /feedback/{recommendationId}` | Helpful/not-helpful verdicts (FR-10.1); triggers the skill-vector recompute once enough feedback accumulates |
+| `skillvector` | `GET /roles/{roleId}/skill-vectors`, `POST /roles/{roleId}/skill-vectors/recompute` (ADMIN only) | Versioned, EMA-weighted skill store (FR-7.1-7.4) |
 | `client` | — | Typed HTTP client wrapping the ML service |
-
-The temporal EMA-weighted skill-vector update job (FR-7) is not implemented yet — feedback rows
-are persisted, but nothing recomputes `SkillVector` weights from them.
 
 ## Running locally
 
@@ -33,6 +32,14 @@ and `OBJECT_STORAGE_*` at an existing S3-compatible endpoint instead.
 Flyway (`src/main/resources/db/migration/`) creates the schema on startup; Hibernate only
 validates it matches the entities (`ddl-auto: validate`), it never generates DDL itself.
 
+## API docs
+
+Swagger UI: `http://localhost:8080/swagger-ui/index.html` — browse every endpoint and try
+requests directly. Public/login endpoints work with no setup; for anything else, call
+`POST /auth/login`, copy the `token` from the response, and paste it into the Authorize button
+(top right) as `<token>` (no `Bearer ` prefix needed, Swagger adds it). Raw OpenAPI document at
+`http://localhost:8080/v3/api-docs`.
+
 Key environment variables (see `src/main/resources/application.yml` for every default):
 
 | Variable | Default | Purpose |
@@ -40,10 +47,11 @@ Key environment variables (see `src/main/resources/application.yml` for every de
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | `jdbc:postgresql://localhost:5432/resume_analyser` / `postgres` / `postgres` | Database connection |
 | `JWT_SECRET` | dev-only default | HS256 signing key — **must** be overridden in any real deployment |
 | `ML_SERVICE_BASE_URL` | `http://localhost:8000` | Where the ML service is running |
-| `OBJECT_STORAGE_ENDPOINT` | `http://localhost:9000` | MinIO/S3-compatible endpoint resume files are stored in |
+| `OBJECT_STORAGE_ENDPOINT` | `http://localhost:9010` | MinIO/S3-compatible endpoint resume files are stored in (host port shifted off MinIO's default 9000, which commonly collides with other local tools) |
 | `OBJECT_STORAGE_ACCESS_KEY` / `OBJECT_STORAGE_SECRET_KEY` | `minioadmin` / `minioadmin` | Object storage credentials |
 | `OBJECT_STORAGE_BUCKET` | `resumes` | Bucket resume files are stored in (created on startup if missing) |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origin(s) the frontend is served from |
+| `APP_ADMIN_EMAILS` | *(empty)* | Comma-separated emails promoted to ADMIN on register/login — the bootstrap for the first administrator |
 
 ## Testing
 
