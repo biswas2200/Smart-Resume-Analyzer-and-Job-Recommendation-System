@@ -2,12 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Frontend</title>
-    <base href="/" />
+    <title>Smart Resume Analyser</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
   </head>
   <body>
-    <app-root></app-root>
+    <!-- Entry point: send a signed-in user to their dashboard, everyone else to sign in. -->
+    <script type="module">
+      import { isAuthenticated } from './js/core/session.js';
+
+      location.replace(isAuthenticated() ? 'dashboard.html' : 'login.html');
+    </script>
   </body>
 </html>

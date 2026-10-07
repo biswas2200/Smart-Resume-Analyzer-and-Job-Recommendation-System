@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Dashboard · Smart Resume Analyser</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+          integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous" />
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <header id="app-header"></header>
+
+    <main class="container py-4" style="max-width: 900px">
+      <h1 class="h2 mb-4">Dashboard</h1>
+
+      <p id="loading" class="text-body-secondary">
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading…
+      </p>
+
+      <div id="load-error" class="alert alert-danger" role="alert" hidden></div>
+
+      <!-- No resume uploaded yet (the dashboard endpoint returned no body). -->
+      <div id="upload-prompt" class="card shadow-sm" hidden>
+        <div class="card-body">
+          <p>Upload a resume to see your ATS score and personalized role recommendations.</p>
+          <a href="upload.html" class="btn btn-primary">Upload your resume</a>
+        </div>
+      </div>
+
+      <div id="dashboard-content" hidden>
+        <!-- Detected field -->
+        <section id="domain-card" class="card shadow-sm mb-4" hidden>
+          <div class="card-body">
+            <h2 class="h5">Detected field</h2>
+            <p class="d-flex flex-wrap align-items-center gap-2 mb-0">
+              <span id="domain-name" class="fs-5 fw-semibold"></span>
+              <span id="domain-confidence" class="badge rounded-pill text-bg-light border"></span>
+              <span id="domain-engine" class="badge rounded-pill"></span>
+            </p>
+            <p id="ai-allowance" class="small text-body-secondary mt-2 mb-0" hidden></p>
+          </div>
+        </section>
+
+        <!-- ATS compatibility -->
+        <section class="card shadow-sm mb-4">
+          <div class="card-body">
+            <h2 class="h5">ATS compatibility</h2>
+            <p id="ats-score" class="fs-3 fw-semibold mb-2"></p>
+            <ul id="ats-checks" class="list-unstyled mb-0"></ul>
+          </div>
+        </section>
+
+        <!-- Coaching notes -->
+        <section class="card shadow-sm mb-4">
+          <div class="card-body">
+            <h2 class="h5">
+              Coaching notes
+              <span id="coaching-badge" class="badge rounded-pill align-middle ms-2"></span>
+            </h2>
+            <p id="explanation" class="preserve-lines mb-0"></p>
+            <p id="coaching-upgrade-hint" class="small text-body-secondary mt-2 mb-0" hidden>
+              Upgrade to Premium for an AI-written coaching narrative.
+            </p>
+          </div>
+        </section>
+
+        <!-- Recommendations withheld: wording follows lockReason. -->
+        <section id="locked-card" class="card locked-card shadow-sm mb-4" hidden>
+          <div class="card-body">
+            <h2 class="h5">Recommended roles</h2>
+
+            <p id="locked-community" hidden>
+              Role recommendations and skill gaps for <strong data-field="domain-name"></strong> need the
+              AI engine, which the Community Edition doesn't include. Engineering &amp; Technology resumes
+              are analysed in full here; for this resume, use the cloud version.
+            </p>
+
+            <p id="locked-budget" hidden>
+              The free AI engine has reached today's budget, so role recommendations for
+              <strong data-field="domain-name"></strong> are paused until tomorrow. Premium analyses are
+              not limited.
+            </p>
+
+            <div id="locked-default" hidden>
+              <p>
+                Role recommendations and skill gaps for <strong data-field="domain-name"></strong> come from
+                the AI engine. Engineering &amp; Technology resumes are unlimited for everyone on the local
+                engine; other fields get <span id="locked-quota"></span> free AI analyses a month, unlimited
+                on Premium.
+              </p>
+              <p id="locked-allowance" hidden></p>
+            </div>
+
+            <div id="unlock-section" hidden>
+              <p id="unlock-message"></p>
+              <button id="reanalyze-button" type="button" class="btn btn-primary">Re-analyse my resume</button>
+              <p id="reanalyze-error" class="text-danger mt-2 mb-0" hidden></p>
+            </div>
+
+            <p id="locked-upgrade-hint" class="small text-body-secondary mb-0" hidden>
+              Upgrade to Premium for unlimited AI analyses, an AI-written coaching narrative and five role
+              matches.
+            </p>
+          </div>
+        </section>
+
+        <!-- Ranked role matches -->
+        <section id="recommendations-section" class="mb-4" hidden>
+          <h2 class="h4 mb-3">Recommended roles</h2>
+          <div id="recommendations"></div>
+        </section>
+
+        <!-- JD match (Premium) -->
+        <section class="card shadow-sm mb-4">
+          <div class="card-body">
+            <h2 class="h5">
+              Match to a job description
+              <span class="badge rounded-pill text-bg-primary align-middle ms-2">Premium</span>
+            </h2>
+
+            <div id="jd-form" hidden>
+              <p>Paste a job description to see how well this resume covers its requirements and what to add.</p>
+              <label for="jd-text" class="visually-hidden">Job description</label>
+              <textarea id="jd-text" class="form-control mb-2" rows="8"
+                        placeholder="Paste the job description here — the requirements section matters most."></textarea>
+              <button id="jd-match-button" type="button" class="btn btn-primary" disabled>Match my resume</button>
+              <p id="jd-match-error" class="text-danger mt-2 mb-0" hidden></p>
+
+              <div id="jd-result" class="border-top mt-3 pt-3" hidden>
+                <p id="jd-score" class="fs-3 fw-semibold mb-1"></p>
+                <p id="jd-components" class="small text-body-secondary"></p>
+                <p id="jd-matched-group" class="d-flex flex-wrap align-items-center gap-2" hidden>
+                  <strong>You have:</strong> <span id="jd-matched" class="d-contents"></span>
+                </p>
+                <p id="jd-missing-group" class="d-flex flex-wrap align-items-center gap-2" hidden>
+                  <strong>Add or evidence:</strong> <span id="jd-missing" class="d-contents"></span>
+                </p>
+                <p id="jd-explanation" class="preserve-lines mb-0"></p>
+              </div>
+            </div>
+
+            <p id="jd-upgrade-hint" class="small text-body-secondary mb-0" hidden>
+              Paste any job description and see exactly which of its requirements your resume covers and what
+              to add — upgrade to Premium to unlock it.
+            </p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- One ATS check row. -->
+    <template id="ats-check-template">
+      <li class="py-1">
+        <strong data-field="name"></strong> — <span data-field="detail"></span>
+      </li>
+    </template>
+
+    <!-- One recommended role. -->
+    <template id="recommendation-template">
+      <article class="card shadow-sm mb-3">
+        <div class="card-body">
+          <header class="d-flex justify-content-between align-items-baseline gap-3">
+            <h3 class="h5 mb-2" data-field="title"></h3>
+            <span class="fw-semibold text-primary text-nowrap" data-field="match"></span>
+          </header>
+          <p data-field="description"></p>
+
+          <p class="d-flex flex-wrap align-items-center gap-2" data-field="matched-group">
+            <strong>Matched:</strong> <span class="d-contents" data-field="matched"></span>
+          </p>
+          <p class="d-flex flex-wrap align-items-center gap-2" data-field="missing-group">
+            <strong>Missing:</strong> <span class="d-contents" data-field="missing"></span>
+          </p>
+
+          <div class="d-flex flex-wrap align-items-center gap-2 border-top pt-3 mt-3 small text-body-secondary">
+            <span>Was this recommendation helpful?</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-field="helpful">Helpful</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-field="not-helpful">Not helpful</button>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <script type="module" src="js/pages/dashboard.js"></script>
+  </body>
+</html>

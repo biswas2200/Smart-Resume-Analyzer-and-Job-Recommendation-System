@@ -1,0 +1,54 @@
+/* Everything layout/typography comes from Bootstrap 5; this file only holds the few
+   app-specific looks Bootstrap has no utility class for. */
+
+body {
+  background: var(--bs-tertiary-bg);
+}
+
+/* The page scripts show/hide sections with the `hidden` attribute. Bootstrap's display
+   utilities (.d-flex etc.) are !important and come later than its own [hidden] rule, so they
+   would win; re-assert it here, after Bootstrap, so `hidden` always hides. */
+[hidden] {
+  display: none !important;
+}
+
+/* Login/register: one centred card under the navbar. */
+.auth-card {
+  max-width: 400px;
+}
+
+/* Matched / missing skill chips on the dashboard and JD-match result. */
+.skill-chip {
+  font-weight: 500;
+}
+
+.skill-chip--matched {
+  background: var(--bs-success-bg-subtle);
+  color: var(--bs-success-text-emphasis);
+}
+
+.skill-chip--missing {
+  background: var(--bs-danger-bg-subtle);
+  color: var(--bs-danger-text-emphasis);
+}
+
+.skill-chip--neutral {
+  background: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+}
+
+/* Recommendations withheld: a dashed card reads as "not available yet". */
+.locked-card {
+  border-style: dashed;
+}
+
+/* The AI explanation keeps its paragraph breaks. */
+.preserve-lines {
+  white-space: pre-line;
+}
+
+/* A chip container that lays its chips out as if they were direct children of the flex row
+   it sits in (Bootstrap 5.3 has no display:contents utility). */
+.d-contents {
+  display: contents;
+}

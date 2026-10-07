@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sign in · Smart Resume Analyser</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+          integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous" />
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <header id="app-header"></header>
+
+    <main class="container py-5">
+      <form id="login-form" class="card auth-card mx-auto shadow-sm" novalidate>
+        <div class="card-body p-4">
+          <h1 class="h3 mb-4">Sign in</h1>
+
+          <div id="login-error" class="alert alert-danger" role="alert" hidden></div>
+
+          <div class="mb-3">
+            <label for="login-email" class="form-label">Email</label>
+            <input id="login-email" type="email" class="form-control" autocomplete="email"
+                   aria-describedby="login-email-error" />
+            <div id="login-email-error" class="invalid-feedback"></div>
+          </div>
+
+          <div class="mb-4">
+            <label for="login-password" class="form-label">Password</label>
+            <input id="login-password" type="password" class="form-control" autocomplete="current-password"
+                   aria-describedby="login-password-error" />
+            <div id="login-password-error" class="invalid-feedback"></div>
+          </div>
+
+          <button id="login-submit" type="submit" class="btn btn-primary w-100">Sign in</button>
+
+          <p class="text-center text-body-secondary small mt-3 mb-0">
+            Don't have an account? <a href="register.html">Create one</a>
+          </p>
+        </div>
+      </form>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <script type="module" src="js/pages/login.js"></script>
+  </body>
+</html>
