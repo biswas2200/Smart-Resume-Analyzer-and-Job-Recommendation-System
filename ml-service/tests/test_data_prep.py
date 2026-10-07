@@ -344,3 +344,16 @@ def test_year_after_a_blank_line_below_the_school_is_found():
     text = "EDUCATION\n\nMBA in marketing-tourism\n\nCalicut University -  Calicut, Kerala\n\n2016 to 2018\n\nhttps://www.indeed.com/r/x"
     school = text.index("Calicut University")
     assert _years(text, fix_graduation_years(text, [Entity(school, school + 18, "College Name")], Counter())) == ["2018"]
+
+
+def test_not_applicable_values_are_dropped_as_placeholders():
+    from training.data_prep.gemini_label import align
+
+    text = "N/A , Business Administration 1999 Jefferson College"
+    stats = Counter()
+    entities = align(text, [{"label": "Degree", "text": "N/A"}, {"label": "College Name", "text": "Jefferson College"}], stats)
+    # "1999" is added by the graduation-year rule (it is on the school's line).
+    assert [(e.label, text[e.start:e.end]) for e in entities] == [
+        ("Graduation Year", "1999"), ("College Name", "Jefferson College")
+    ]
+    assert stats["placeholder_dropped"] == 1

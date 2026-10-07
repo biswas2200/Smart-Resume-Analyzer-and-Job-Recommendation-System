@@ -93,7 +93,7 @@ RESPONSE_SCHEMA = {
 
 # Anonymisation placeholders in the LiveCareer data. Models label them despite
 # the prompt, so they are dropped here whatever the model returns.
-PLACEHOLDERS = {"company name", "city", "state", "city , state", "city, state", "country", "job title", "[job title]"}
+PLACEHOLDERS = {"company name", "city", "state", "city , state", "city, state", "country", "job title", "[job title]", "n/a", "na", "none"}
 
 # USD per million tokens (input, output); thinking tokens are billed as output.
 # Vertex AI list prices for the models this script has been run with; check
@@ -344,7 +344,8 @@ def main() -> int:
             record = Record(
                 id=str(row["id"]), source=f"gemini:{args.model}", split=args.split, text=row["text"],
                 entities=align(row["text"], answers, stats),
-                meta={"category": row.get("category", ""), "model": args.model, "prompt_version": PROMPT_VERSION},
+                meta={"category": row.get("category") or row.get("meta", {}).get("category", ""),
+                      "model": args.model, "prompt_version": PROMPT_VERSION},
             )
             problems = validate_record(record)
             if problems:
