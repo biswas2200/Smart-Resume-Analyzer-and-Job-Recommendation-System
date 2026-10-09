@@ -357,3 +357,42 @@ def test_not_applicable_values_are_dropped_as_placeholders():
         ("Graduation Year", "1999"), ("College Name", "Jefferson College")
     ]
     assert stats["placeholder_dropped"] == 1
+
+
+def _failing_then(answer, *codes: int):
+    """A call that raises an API error with each code in turn, then returns `answer`."""
+    from google.genai import errors
+
+    pending = list(codes)
+
+    def call():
+        if pending:
+            code = pending.pop(0)
+            raise (errors.ServerError if code >= 500 else errors.ClientError)(code, {"error": {"code": code}})
+        return answer
+
+    return call
+
+
+def test_rate_limits_and_server_faults_are_retried():
+    from training.data_prep.gemini_label import _with_retry
+
+    assert _with_retry(_failing_then("ok", 429, 503, 500), first_wait=0) == "ok"
+
+
+def test_other_client_errors_are_not_retried():
+    from google.genai import errors
+
+    from training.data_prep.gemini_label import _with_retry
+
+    with pytest.raises(errors.ClientError):
+        _with_retry(_failing_then("ok", 400), first_wait=0)
+
+
+def test_retries_stop_after_the_last_attempt():
+    from google.genai import errors
+
+    from training.data_prep.gemini_label import _with_retry
+
+    with pytest.raises(errors.ServerError):
+        _with_retry(_failing_then("ok", 503, 503, 503), attempts=3, first_wait=0)

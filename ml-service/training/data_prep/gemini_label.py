@@ -11,9 +11,9 @@ costs, the spending cap and the quality gates.
 
     cd ml-service
     # 1. estimate the cost first, no API call (cost rule):
-    python -m training.data_prep.gemini_label INPUT.jsonl --model gemini-2.5-flash-lite --out OUT.jsonl --dry-run
+    python -m training.data_prep.gemini_label INPUT.jsonl --model gemini-3.5-flash-lite --out OUT.jsonl --dry-run
     # 2. a small real sample, then compare assumed vs actual:
-    python -m training.data_prep.gemini_label INPUT.jsonl --model gemini-2.5-flash-lite --out OUT.jsonl --limit 2
+    python -m training.data_prep.gemini_label INPUT.jsonl --model gemini-3.5-flash-lite --out OUT.jsonl --limit 2
 
 INPUT is any JSONL with "id" and "text" fields (a records file from build.py,
 or datasets/eval-unseen/sample.jsonl). Authentication is Application Default
@@ -243,18 +243,20 @@ def align(text: str, answers: list[dict], stats: Counter) -> list[Entity]:
 
 
 def _with_retry(call, attempts: int = 6, first_wait: float = 10.0):
-    """Run `call`, waiting 10, 20, 40... seconds after a 429 RESOURCE_EXHAUSTED
-    (Vertex AI's shared quota pushing back) before trying again."""
+    """Run `call`, waiting 10, 20, 40... seconds before trying again after a
+    429 RESOURCE_EXHAUSTED (Vertex AI's shared quota pushing back) or a 5xx
+    (a passing server fault), so a long unattended run does not stop on one.
+    Any other error is raised at once; neither kind is billed."""
     from google.genai import errors
 
     for attempt in range(attempts):
         try:
             return call()
-        except errors.ClientError as error:
-            if error.code != 429 or attempt == attempts - 1:
+        except errors.APIError as error:
+            if not (error.code == 429 or error.code >= 500) or attempt == attempts - 1:
                 raise
             wait = first_wait * 2 ** attempt
-            print(f"  429 from Vertex AI, retrying in {wait:.0f}s", file=sys.stderr)
+            print(f"  {error.code} from Vertex AI, retrying in {wait:.0f}s", file=sys.stderr)
             time.sleep(wait)
 
 

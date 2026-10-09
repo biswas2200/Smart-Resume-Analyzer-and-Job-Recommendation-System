@@ -102,7 +102,7 @@ on the longest resume. The cap below absorbs that.
 | `--dry-run` | Spending anything before seeing the estimate |
 | `--max-usd` (default $1) | Overspending: before each call the script checks spent + 2 x the call's estimate against the cap and stops cleanly if it would cross it |
 | Skip already-labelled IDs | Paying twice after a crash, a 429 or a stopped run |
-| Retry on 429 | A rate-limit pause killing a long run (waits 10, 20, 40 ... seconds) |
+| Retry on 429 and 5xx | A rate-limit pause or a passing server fault killing a long run (waits 10, 20, 40 ... seconds); neither is billed |
 | Answer schema with a label enum | Models inventing label names ("Skill", "Job Title"); pro did this 176 times before the schema |
 | Exact-text alignment | Paraphrased or invented values becoming labels: an answer that is not verbatim in the resume is dropped and counted (`not_in_text`) |
 | Placeholder filter | LiveCareer's anonymisation ("Company Name", "City", "State", "[Job Title]") being labelled; flash-lite labelled 184 of them in one run despite the prompt |
