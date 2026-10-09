@@ -173,8 +173,8 @@ stage_label() {
   check "VM build = laptop build, file by file (SHA-256)" vm_build_matches_laptop
   check "eval resumes are not in the pool; DataTurks 0111-0130 are in test" eval_resumes_excluded
   check "labelling logic is unchanged since the measured sample ($MEASURED)" labelling_logic_unchanged
-  echo "  by hand: dry-run estimate <= cap; VM sample <= \$0.007 per resume, not_in_text <= 1 %;"
-  echo "           spent so far + estimate <= \$20 (PREFLIGHT.md 4.4 to 4.6)"
+  echo "  by hand: dry-run estimate x the sample's actual/assumed <= cap; VM sample <= \$0.007 per resume,"
+  echo "           not_in_text <= 1 %; spent so far + estimate <= \$20 (PREFLIGHT.md 4.4 to 4.6)"
 }
 
 # --- after ----------------------------------------------------------------------

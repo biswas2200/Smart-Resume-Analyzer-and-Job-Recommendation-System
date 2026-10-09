@@ -83,7 +83,16 @@ sync_up() { gcloud storage cp "$OUT" "$LOG" "$BUCKET/labelled/" > /dev/null 2>&1
 
 label() {  # gemini_label.py on the pool with the given extra arguments
   prepare_labels
-  (while sleep 300; do sync_up; done) &
+  # Copies the labels to the bucket every 5 minutes. It writes nowhere and kills its
+  # own sleep when stopped: a leftover sleep holding stdout kept SSH waiting 5 minutes.
+  (
+    trap 'kill $! 2> /dev/null; exit 0' TERM
+    while :; do
+      sleep 300 &
+      wait $!
+      sync_up
+    done
+  ) > /dev/null 2>&1 &
   local syncer=$! status=0
   (cd "$CODE" && "$PY" -u -m training.data_prep.gemini_label "$POOL" --model "$MODEL" --out "$OUT" "$@") 2>&1 |
     tee -a "$LOG" || status=$?
