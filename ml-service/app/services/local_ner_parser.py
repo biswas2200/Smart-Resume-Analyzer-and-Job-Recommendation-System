@@ -140,7 +140,7 @@ def parse_resume_local(
 
     entities: list[NerEntity] = []
     for chunk in _chunk_text(ner_text):
-        entities.extend(pipeline_fn(chunk))
+        entities.extend(_with_source_text(pipeline_fn(chunk), chunk))
 
     profile = _entities_to_profile(entities, resume_text)
     profile.skills = normalize_skills([*find_skills(resume_text), *profile.skills])
@@ -172,6 +172,24 @@ def _get_ner_pipeline() -> Callable[[str], list[NerEntity]]:
         revision=settings.ner_model_revision,
         aggregation_strategy="first",
     )
+
+
+def _with_source_text(entities: list[NerEntity], chunk: str) -> list[NerEntity]:
+    """Each entity's text as it is written in the resume. The pipeline's
+    "word" is rebuilt from subword tokens, which puts spaces around
+    punctuation ("Technical Lead / Operations Manager" for
+    "Technical Lead/Operations Manager"), so the same title would not match
+    itself. The entity's character offsets into the chunk give the original
+    text; runs of whitespace inside it (a span across a line break) become
+    one space. Entities without usable offsets keep their "word".
+    """
+    fixed = []
+    for entity in entities:
+        start, end = entity.get("start"), entity.get("end")
+        if isinstance(start, int) and isinstance(end, int) and 0 <= start < end <= len(chunk):
+            entity = {**entity, "word": " ".join(chunk[start:end].split())}
+        fixed.append(entity)
+    return fixed
 
 
 # Each whitespace-delimited word *with* the whitespace that follows it, so a

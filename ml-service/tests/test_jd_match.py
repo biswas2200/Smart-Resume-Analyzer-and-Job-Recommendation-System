@@ -106,7 +106,7 @@ def test_match_jd_endpoint_round_trips_and_validates_length():
     body = response.json()
     assert {"score", "coverage", "similarity", "jd_skills", "matched_skills", "missing_skills",
             "closest_role", "explanation", "engine_fingerprint"} <= body.keys()
-    assert body["engine_fingerprint"]["engine_version"] == "0.4.0"
+    assert body["engine_fingerprint"]["engine_version"] == "0.4.1"
 
     assert client.post("/match-jd", json={"skills": [], "jd_text": ""}).status_code == 422
     assert client.post("/match-jd", json={"skills": [], "jd_text": "x" * 20_001}).status_code == 422

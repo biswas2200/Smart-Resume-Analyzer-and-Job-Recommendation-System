@@ -109,7 +109,7 @@ class Settings(BaseSettings):
     # Engine version stamped into every engine_fingerprint (FR-11.2, see
     # fingerprint.py) -- bumped on any release that changes scoring behavior,
     # so two deployments can prove they're running the same core engine.
-    engine_version: str = "0.4.0"
+    engine_version: str = "0.4.1"
 
     # Revision/commit pins for the two models fingerprint.py hashes into
     # engine_fingerprint.ner_model_sha / embed_model_sha. Real content-hash

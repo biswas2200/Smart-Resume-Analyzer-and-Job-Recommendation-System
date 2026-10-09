@@ -11,6 +11,7 @@ from app.services.local_ner_parser import (
     _extract_name,
     _fill_education_institutions,
     _fill_education_years,
+    _with_source_text,
     parse_resume_local,
 )
 
@@ -489,3 +490,44 @@ def test_fill_education_institutions_ignores_words_that_only_contain_a_keyword()
     result = _fill_education_institutions(education, "B.Sc\nschooling completed in 2015")
 
     assert result[0].institution == ""
+
+
+# --- Entity text from the resume (_with_source_text) -------------------------
+
+
+def test_entity_text_is_taken_from_the_resume_not_the_rebuilt_tokens():
+    chunk = "Technical Lead/Operations Manager\nDell EMC"
+    start = chunk.index("Technical")
+    entity = {"entity_group": "Designation", "word": "Technical Lead / Operations Manager", "score": 0.9,
+              "start": start, "end": start + len("Technical Lead/Operations Manager")}
+
+    assert _with_source_text([entity], chunk)[0]["word"] == "Technical Lead/Operations Manager"
+
+
+def test_a_span_across_a_line_break_becomes_one_line():
+    chunk = "Wipro\nTechnologies Ltd"
+    entity = {"entity_group": "Companies worked at", "word": "Wipro Technologies Ltd", "score": 0.9,
+              "start": 0, "end": len(chunk)}
+
+    assert _with_source_text([entity], chunk)[0]["word"] == "Wipro Technologies Ltd"
+
+
+def test_entities_without_usable_offsets_keep_their_word():
+    rows = [_entity("Designation", "Engineer"),                                   # start = end = 0
+            {"entity_group": "Degree", "word": "B.Tech", "score": 0.9},           # no offsets at all
+            {"entity_group": "Degree", "word": "MBA", "score": 0.9, "start": 3, "end": 99}]  # past the end
+
+    assert [e["word"] for e in _with_source_text(rows, "short")] == ["Engineer", "B.Tech", "MBA"]
+
+
+def test_parse_resume_local_reports_titles_as_written():
+    text = "Experience\nTechnical Lead/Operations Manager\nDell EMC"
+
+    def fake_pipeline(chunk):
+        start = chunk.index("Technical")
+        return [{"entity_group": "Designation", "word": "Technical Lead / Operations Manager", "score": 0.9,
+                 "start": start, "end": start + len("Technical Lead/Operations Manager")}]
+
+    profile = parse_resume_local(text, ner_pipeline=fake_pipeline)
+
+    assert profile.experience[0].title == "Technical Lead/Operations Manager"
