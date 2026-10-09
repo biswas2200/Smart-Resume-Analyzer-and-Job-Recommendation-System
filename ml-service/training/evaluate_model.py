@@ -45,7 +45,12 @@ UNSEEN_FIELDS = {
 
 
 def tally(gold: list[str], ours: list[str], counts: list[int]) -> None:
-    """counts = [our values that match gold, our values, gold values matched, gold values]."""
+    """counts = [our values that match gold, our values, gold values matched, gold values].
+    Whitespace runs count as one space on both sides: some DataTurks labels
+    carry the resume's line breaks ("Wipro\\nTechnologies."), which would
+    otherwise never match the same company written on one line."""
+    gold = list(dict.fromkeys(" ".join(g.split()) for g in gold))
+    ours = [" ".join(o.split()) for o in ours]
     counts[0] += sum(any(_contains_either(x, y) for y in gold) for x in ours)
     counts[1] += len(ours)
     counts[2] += sum(any(_contains_either(y, x) for x in ours) for y in gold)

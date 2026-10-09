@@ -52,3 +52,12 @@ def test_worksheet_lists_values_outside_the_key_with_their_models_and_lines():
     assert "Systems Engineer" in extra["Systems Engineer"]["context"]
     assert [m["value"] for m in rows[0]["missed_by_all"]] == ["Chief Pilot"]
     assert rows[0]["missed_by_all"][0]["context"] == "(not verbatim in the resume)"
+
+
+def test_line_breaks_inside_a_key_value_do_not_stop_a_match():
+    turks = [(TEXT, {"Companies worked at": ["Wipro\nTechnologies."]})]
+    parse = lambda _text: _profile("Engineer", companies=("Wipro Technologies",))
+
+    result = score(parse, turks, {"Company": TURKS_FIELDS["Company"]})["Company"]
+
+    assert result["precision"] == result["recall"] == 1.0
