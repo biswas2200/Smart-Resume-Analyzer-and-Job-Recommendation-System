@@ -95,6 +95,32 @@ guess). Measured against them: flash-lite ran 20 to 75 % over (long skill
 lists), flash 10 to 20 % under, pro 40 % under on average but up to 1.5x over
 on the longest resume. The cap below absorbs that.
 
+## The full pool run (2026-10-09)
+
+Run on the GCP VM (`training/gcp/vm.sh full`, see ../gcp-setup.md §5),
+gemini-3.5-flash-lite, prompt v3, cap $12.
+
+| | Result |
+|---|---|
+| Resumes | all 2,461 pool resumes labelled (2,446 in this run, 15 from the samples); every record passed validation |
+| Time | 2 h 55 min (13:11 to 16:07 IST), no restarts; 87 rate-limit (429) retries, all recovered |
+| Cost | $7.18 actual against $13.67 estimated: $0.0029 per resume, 0.53 of the estimate |
+| Labelling spend to date | about $9.24 of the $20 budget |
+| Answers | 120,618; 252 not found in the text (0.21 %); 1,401 placeholders and 510 overlaps dropped |
+| Graduation years | 2,995 dropped and 965 added by the year rule; 4,140 kept |
+| Entities kept | 116,202: Skills 82,520, Designation 16,457, College Name 5,438, Degree 4,837, Graduation Year 4,140, Years of Experience 1,197, Companies worked at 1,128, Location 1,057, Name 189, Phone 70, Email Address 17 |
+
+By-eye check: 3 random records were correct field by field. Of the 483
+records with a degree or school but no graduation year, 427 state no year in
+their education lines at all; the other 56 have the year on a certification
+line, which the rule excludes on purpose. Known small defects to filter when
+building BIO files: a few graduation years that are not years (2 × "Present",
+2 × "May"). Names, employers and contact details are rare because LiveCareer
+is anonymised; those labels come mainly from DataTurks.
+
+Output: `gs://smart-resume-analyzer-a7x2-data/labelled/gemini-3.5-flash-lite.v3.jsonl`,
+with `run.log` and `REPORT.json` next to it.
+
 ## Safety features in the script
 
 | Feature | What it prevents |

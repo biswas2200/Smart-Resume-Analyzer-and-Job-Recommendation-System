@@ -54,3 +54,7 @@ docs/manual-downloads-backlog.md
 
 # Personal supporting notes (not for the repo)
 supporting-docs/
+
+# Personal Claude Code settings and hooks
+.claude/settings.local.json
+.claude/hooks/
