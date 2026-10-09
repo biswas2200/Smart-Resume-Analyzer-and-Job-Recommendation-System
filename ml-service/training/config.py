@@ -11,9 +11,22 @@ OUTPUT_DIR = TRAINING_DIR / "output"
 
 
 class NERTrainingConfig(BaseModel):
-    """Hyperparameters for resume NER continue-training & distillation."""
+    """Hyperparameters for resume NER continue-training & distillation.
+
+    `base_model` is both the model that is continue-trained and the
+    distillation teacher, pinned to the revision the app serves, so results
+    compare with its measured baseline. Distillation compares teacher and
+    student outputs token by token, so both must split text into the same
+    tokens: the teacher is BERT-base cased (28,996-token vocabulary), and
+    distilbert-base-cased has that exact vocabulary. An uncased student
+    (distilbert-base-uncased, MiniLM-L6-H384-uncased) splits words
+    differently from the first token and loses capitalisation, a strong
+    signal for names and employers.
+    """
     base_model: str = "yashpwr/resume-ner-bert"
-    student_model: str = "distilbert-base-uncased"
+    base_model_revision: str = "3ea6ecf44274c0947b6e627bd36c32ec0e8c3eb8"
+    student_model: str = "distilbert/distilbert-base-cased"
+    student_model_revision: str = "6ea81172465e8b0ad3fddeed32b986cdcdcffcf0"
     batch_size: int = 16
     learning_rate: float = 3e-5
     num_epochs: int = 5

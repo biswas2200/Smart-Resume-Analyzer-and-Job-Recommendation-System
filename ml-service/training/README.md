@@ -51,10 +51,10 @@ By leveraging **Google Cloud Platform (GCP)** and the allocated **$300 GCP credi
 
 ### Track A: Resume NER Continue-Training & Distillation
 * **Teacher Model:** `yashpwr/resume-ner-bert` (BERT-base, 25 BIO labels, 431 MB; pinned `3ea6ecf`).
-* **Student Model:** 6-layer `distilbert-base-uncased` or `MiniLM-L6-H384`.
+* **Student Model:** 6-layer `distilbert/distilbert-base-cased` (pinned `6ea8117`). Distillation compares teacher and student token by token, so the student must share the teacher's cased 28,996-token vocabulary, and this one does, byte for byte. Uncased students (`distilbert-base-uncased`, `MiniLM-L6-H384-uncased`) split text differently from the first token (107 vs 91 tokens on the first 400 characters of a DataTurks resume) and drop capitalisation, which names and employers depend on.
 * **Objective:** Knowledge distillation combining:
   $$\mathcal{L} = \alpha \cdot \text{KL}(\text{student}, \text{teacher}) + (1 - \alpha) \cdot \text{CrossEntropy}(\text{labels})$$
-* **Outcome:** Reduces NER model size from 431 MB to ~130 MB fp32 (~35 MB int8) and must **beat the measured baseline**: 60 % field macro F1 on the DataTurks held-out half and 64 % on the unseen LiveCareer sample (`supporting-docs/ml-pipeline.md`).
+* **Outcome:** Reduces the NER model from 107.7M to 65.2M parameters, 431 MB to 261 MB in fp32 (int8 quantization at export shrinks it further; measure it then), and must **beat the measured baseline**: 60 % field macro F1 on the DataTurks held-out half and 64 % on the unseen LiveCareer sample (`supporting-docs/ml-pipeline.md`).
 
 ### Track B: Skill & Role Embedder Fine-Tuning
 * **Base Model:** `sentence-transformers/all-MiniLM-L6-v2` (22.7M parameters).
