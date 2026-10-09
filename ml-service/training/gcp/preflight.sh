@@ -91,7 +91,7 @@ sa_exists() { gcloud iam service-accounts describe "$SA"; }
 sa_project_roles_minimal() {
   [ "$(gcloud projects get-iam-policy "$PROJECT" --flatten='bindings[].members' \
     --filter="bindings.members:serviceAccount:$SA" --format='value(bindings.role)' | sort | paste -sd,)" \
-    = roles/aiplatform.user ]
+    = roles/aiplatform.user,roles/logging.logWriter ]
 }
 sa_bucket_role() {
   gcloud storage buckets get-iam-policy "$BUCKET" --format=json | python3 -I -c 'import json, sys
@@ -111,7 +111,7 @@ vm_python_312() { on_vm '~/venv/bin/python -c "import sys; sys.exit(sys.version_
 stage_vm() {
   echo "vm: service account and VM"
   check "service account $SA exists" sa_exists
-  check "its only project role is roles/aiplatform.user" sa_project_roles_minimal
+  check "its only project roles are aiplatform.user and logging.logWriter" sa_project_roles_minimal
   check "it has roles/storage.objectAdmin on the bucket" sa_bucket_role
   check "VM $VM is running in $ZONE" vm_running
   check "VM runs as the service account" vm_uses_sa
@@ -168,11 +168,28 @@ sys.exit(shape(sys.argv[1]) != shape(sys.argv[2]))
 EOF
 }
 
+report_alert_ready() {
+  # Enabled, and every channel it emails is verified: Google silently drops alert
+  # emails to an unverified channel (found 2026-10-09: two test alerts never arrived).
+  local channels channel
+  [ "$(gcloud monitoring policies list --project="$PROJECT" \
+    --filter='displayName="Data work: labelling report"' --format='value(enabled)')" = True ] || return 1
+  channels=$(gcloud monitoring policies list --project="$PROJECT" \
+    --filter='displayName="Data work: labelling report"' --format='value(notificationChannels.list(separator=" "))')
+  [ -n "$channels" ] || return 1
+  for channel in $channels; do
+    [ "$(gcloud beta monitoring channels describe "$channel" --format='value(verificationStatus)')" = VERIFIED ] || return 1
+  done
+}
+report_watcher_running() { on_vm 'pgrep -f "bash .*report_on_finish.sh$"'; }
+
 stage_label() {
   echo "label: before the full labelling run"
   check "VM build = laptop build, file by file (SHA-256)" vm_build_matches_laptop
   check "eval resumes are not in the pool; DataTurks 0111-0130 are in test" eval_resumes_excluded
   check "labelling logic is unchanged since the measured sample ($MEASURED)" labelling_logic_unchanged
+  check "the report email alert is enabled and its email channel verified (setup_alerts.sh)" report_alert_ready
+  check "report_on_finish.sh is waiting on the VM, so the report arrives with the laptop off" report_watcher_running
   echo "  by hand: dry-run estimate x the sample's actual/assumed <= cap; VM sample <= \$0.007 per resume,"
   echo "           not_in_text <= 1 %; spent so far + estimate <= \$20 (PREFLIGHT.md 4.4 to 4.6)"
 }

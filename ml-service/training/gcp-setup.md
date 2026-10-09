@@ -47,14 +47,16 @@ Cloud Storage, Vertex AI and BigQuery are already enabled.
 
 ### Budget alert
 
-An email when gross spend reaches 50 %, 90 % and 100 % of $25 in a month.
-Credits are excluded, so the alert tracks real usage even while a free-trial
-credit pays the bill. It only warns; it stops nothing.
+An email when gross spend reaches 50 %, 90 % and 100 % of ₹2,200 (about $25)
+in a month. Credits are excluded, so the alert tracks real usage even while a
+free-trial credit pays the bill. It only warns; it stops nothing. The amount
+must be in the billing account's currency, INR for this account; `25USD` is
+rejected with `INVALID_ARGUMENT`.
 
 ```bash
 ACCOUNT=$(gcloud billing projects describe $PROJECT --format="value(billingAccountName)")
 gcloud billing budgets create --billing-account=${ACCOUNT#billingAccounts/} \
-  --display-name="resume-analyzer data work" --budget-amount=25USD \
+  --display-name="resume-analyzer data work" --budget-amount=2200INR \
   --filter-projects=projects/$PROJECT --credit-types-treatment=exclude-all-credits \
   --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 --threshold-rule=percent=1.0
 ```
@@ -116,10 +118,13 @@ gcloud storage buckets add-iam-policy-binding $BUCKET \
   --member=serviceAccount:$SA --role=roles/storage.objectAdmin
 gcloud projects add-iam-policy-binding $PROJECT \
   --member=serviceAccount:$SA --role=roles/aiplatform.user --condition=None
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member=serviceAccount:$SA --role=roles/logging.logWriter --condition=None
 ```
 
 `roles/storage.objectAdmin` on the bucket lets it read and write this bucket
-only; `roles/aiplatform.user` lets it call Gemini on Vertex AI.
+only; `roles/aiplatform.user` lets it call Gemini on Vertex AI;
+`roles/logging.logWriter` lets it write the end-of-run report (§5).
 
 ### Create the VM
 
@@ -194,6 +199,32 @@ pool). While it runs:
   resumes are skipped, so a restart re-pays for at most the one resume that
   was in flight.
 - At the end it writes `labelled/DONE` and powers the VM off.
+
+### The report by email, with the laptop off
+
+When the run ends, `report_on_finish.sh` (started on the VM next to the run)
+writes a short report to Cloud Logging, and a Cloud Monitoring alert emails it
+to you. It needs about 10 of the 60 seconds before the VM powers off. A second
+alert emails when the VM stops, as a backstop in case no report comes. Your
+address goes only into the alert's email channel, never into the repository.
+The channel must be verified: Google accepts an unverified email channel but
+silently drops every alert sent to it, which is why the script asks for the
+code from the verification email. Both alerts email only when an incident
+opens, not again when it closes.
+
+```bash
+training/gcp/setup_alerts.sh you@example.com             # emails a verification code, then stops
+training/gcp/setup_alerts.sh you@example.com G-123456    # verifies the channel, creates the alerts
+gcloud compute scp training/gcp/report_on_finish.sh data-prep-vm:~/ --zone=$ZONE
+gcloud compute ssh data-prep-vm --zone=$ZONE \
+  --command="nohup setsid bash ~/report_on_finish.sh > ~/report.out 2>&1 < /dev/null &"
+```
+
+Try it first: `bash ~/report_on_finish.sh --dry-run` on the VM prints the
+report for the run so far, and writing one test entry to the `labelling-report`
+log from the laptop (`gcloud logging write labelling-report '{"headline": "TEST"}'
+--payload-type=json`) should produce the email within a few minutes. The
+report also lands in `$BUCKET/labelled/REPORT.json`.
 
 Progress from the laptop:
 

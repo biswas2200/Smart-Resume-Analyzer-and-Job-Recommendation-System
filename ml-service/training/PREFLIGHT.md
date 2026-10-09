@@ -21,7 +21,7 @@ edit fails 4.3, and one altered file hash fails 4.1.
 | 1.1 | gcloud account and project | an active account; project `smart-resume-analyzer-a7x2` | auto | Every command lands in this project |
 | 1.2 | Application Default Credentials | a token is issued; its quota project is this project | auto | Gemini and Storage calls authenticate with no key file |
 | 1.3 | Billing | enabled | auto | Vertex AI and Compute Engine need it |
-| 1.4 | Budget alert | a budget exists on the billing account | auto | An email at 50, 90 and 100 % of $25 of gross spend (credits excluded). It warns; it does not stop anything |
+| 1.4 | Budget alert | a budget exists on the billing account | auto | An email at 50, 90 and 100 % of ₹2,200 (about $25) of gross spend (credits excluded). It warns; it does not stop anything |
 | 1.5 | APIs | Compute Engine, Cloud Storage and Vertex AI enabled | auto | |
 | 1.6 | Code committed | no uncommitted `.py` or `.sh` change under `ml-service/` | auto | The VM runs a known commit, so every label can be traced to the code that made it |
 
@@ -40,7 +40,7 @@ edit fails 4.3, and one altered file hash fails 4.1.
 | # | Check | Pass when | How | Why |
 |---|---|---|---|---|
 | 3.1 | Service account | `data-prep` exists | auto | The VM's identity for ADC |
-| 3.2 | Least privilege | its only project role is `aiplatform.user`; `storage.objectAdmin` on this bucket only | auto | Code on the VM can call Gemini and use this bucket, nothing else |
+| 3.2 | Least privilege | its only project roles are `aiplatform.user` and `logging.logWriter`; `storage.objectAdmin` on this bucket only | auto | Code on the VM can call Gemini, write its report to Cloud Logging and use this bucket, nothing else |
 | 3.3 | VM shape | running in `asia-south1-a`, as that service account, no GPU, not Spot | auto | Google can stop a Spot VM at any time, which would halt the unattended run. A standard VM costs a few cents more for the run |
 | 3.4 | Same code | the VM's code fingerprint equals the laptop's committed `.py` and `.sh` files | auto | |
 | 3.5 | Same Python | 3.12 in the VM's venv, as on the laptop | auto | HTML-to-text cleaning could differ between Python versions |
@@ -56,6 +56,7 @@ edit fails 4.3, and one altered file hash fails 4.1.
 | 4.5 | VM sample of 5 | at most $0.007 per resume on average (twice the laptop sample's $0.0035); `not_in_text` at most 1 % of answers; no error | by hand | The VM path works and costs what the laptop sample did |
 | 4.6 | Budget | spent so far (about $2.04) plus the dry-run estimate at most $20 | by hand | The labelling budget |
 | 4.7 | Unattended run | `vm.sh full`: cap $12; labels copied to the bucket every 5 minutes; restarts only after a crash that made progress, 5 at most; the VM powers off at the end | by design | Paid labels are never lost, a failure cannot repeat at a cost, and nothing runs after the job |
+| 4.8 | Report email armed | the "Data work: labelling report" alert is enabled, its email channel is **verified**, and `report_on_finish.sh` is waiting on the VM | auto | The report reaches you by email with the laptop off. Google silently drops alert emails to an unverified channel: two test alerts never arrived until the channel was verified |
 
 ## 5. After the run (`after`)
 
