@@ -37,6 +37,29 @@ from training.data_prep.schema import Entity, Record, validate_record
 YEAR_RE = re.compile(r"\b(19|20)\d\d\b")
 POOL_DEV_FRACTION = 0.05
 
+# LiveCareer hides every employer as "Company Name" and every place as
+# "City , State". With both left unlabelled, the model learned that the
+# employer slot is empty (run 1: company recall fell on real resumes).
+# fill_placeholders() swaps in invented employers (never real names, so
+# nothing from a test set can leak in) and real US places, and labels them.
+PLACEHOLDER_RE = re.compile(r"Company Name|City , State")
+EDUCATION_LINE_RE = re.compile(r"universit|college|school|institut|academy|degree|bachelor|master|diploma|gpa",
+                               re.IGNORECASE)
+NAME_PARTS = (
+    ["North", "Blue", "Silver", "Summit", "Pioneer", "Evergreen", "Granite", "Harbor", "Liberty", "Cedar",
+     "Atlas", "Sterling", "Bright", "Prairie", "Coastal", "Keystone", "Redwood", "Lakeside", "Union", "Frontier",
+     "Maple", "Crescent", "Riverbend", "Ironwood", "Bluepeak", "Westfield", "Oakridge", "Brookside", "Highland", "Clearwater"],
+    ["Health", "Logistics", "Bank", "Foods", "Systems", "Retail", "Energy", "Media", "Insurance", "Motors",
+     "Labs", "Hospitality", "Construction", "Pharma", "Telecom", "Learning", "Realty", "Analytics", "Aviation", "Apparel",
+     "Financial", "Medical Center", "Manufacturing", "Software", "Consulting", "Marketing", "Dental", "Staffing", "Foods Market", "Transit"],
+    ["Inc", "Group", "LLC", "Corporation", "Partners", "Co.", "Services", "Holdings", "Ltd", ""],
+)
+US_PLACES = [("Austin", "TX"), ("Columbus", "OH"), ("Denver", "CO"), ("Atlanta", "GA"), ("Phoenix", "AZ"),
+             ("Seattle", "WA"), ("Charlotte", "NC"), ("Nashville", "TN"), ("Boston", "MA"), ("Chicago", "IL"),
+             ("Miami", "FL"), ("Portland", "OR"), ("San Diego", "CA"), ("Dallas", "TX"), ("Detroit", "MI"),
+             ("Minneapolis", "MN"), ("Baltimore", "MD"), ("Richmond", "VA"), ("Omaha", "NE"), ("Tampa", "FL"),
+             ("Salt Lake City", "UT"), ("Kansas City", "MO"), ("Raleigh", "NC"), ("Pittsburgh", "PA"), ("Albany", "NY")]
+
 
 def read_records(path: Path) -> list[Record]:
     with open(path, encoding="utf-8") as handle:
@@ -62,6 +85,58 @@ def drop_non_year_graduation_years(record: Record, stats: Counter) -> Record:
     return record
 
 
+def fill_placeholders(record: Record, stats: Counter) -> Record:
+    """Replaces LiveCareer's anonymisation placeholders with invented values
+    and labels them: "Company Name" becomes an invented employer
+    (Companies worked at), "City , State" a real US city and state
+    (Location). The choice depends only on the resume id, so rebuilds are
+    identical. Every later entity shifts by the length change. A placeholder
+    on a line that looks like education, or inside an existing entity, is
+    left as it was."""
+    import random
+
+    rng = random.Random(record.id)
+    text, entities, pieces, added, last, shift = record.text, record.entities, [], [], 0, 0
+    shifts = []                                            # (original position, cumulative shift after it)
+    for match in PLACEHOLDER_RE.finditer(text):
+        start, end = match.span()
+        line = text[text.rfind("\n", 0, start) + 1: (text.find("\n", end) + 1 or len(text) + 1) - 1]
+        if any(e.start < end and e.end > start for e in entities):
+            stats["placeholder_inside_entity_kept"] += 1
+            continue
+        if match.group() == "Company Name" and EDUCATION_LINE_RE.search(line):
+            stats["placeholder_on_education_line_kept"] += 1
+            continue
+        if match.group() == "Company Name":
+            first, second, suffix = (rng.choice(part) for part in NAME_PARTS)
+            value, label = " ".join(w for w in (first, second, suffix) if w), "Companies worked at"
+        else:
+            city, state = rng.choice(US_PLACES)
+            value, label = f"{city} , {state}", "Location"
+        pieces.append(text[last:start])
+        new_start = start + shift
+        added.append(Entity(new_start, new_start + len(value), label))
+        pieces.append(value)
+        shift += len(value) - (end - start)
+        shifts.append((end, shift))
+        last = end
+        stats[f"placeholder_filled_{label}"] += 1
+    if not added:
+        return record
+    pieces.append(text[last:])
+
+    def moved(position: int) -> int:
+        offset = 0
+        for original_end, cumulative in shifts:
+            if position >= original_end:
+                offset = cumulative
+        return position + offset
+
+    shifted = [Entity(moved(e.start), moved(e.end), e.label) for e in entities]
+    return Record(record.id, record.source, record.split, "".join(pieces),
+                  sorted(shifted + added, key=lambda e: e.start), {**record.meta, "placeholders_filled": len(added)})
+
+
 def merge_skills(human: Record, gemini: Record, stats: Counter) -> Record:
     """Human labels for every field but Skills; Gemini's one-per-skill spans
     for Skills, except where they would overlap a human label."""
@@ -82,7 +157,8 @@ def merge_skills(human: Record, gemini: Record, stats: Counter) -> Record:
                   sorted(others + skills, key=lambda e: e.start), {**human.meta, "skills_from": gemini.source})
 
 
-def build(dataturks_path: Path, pool_path: Path, turks_skills_path: Path, out_dir: Path) -> dict:
+def build(dataturks_path: Path, pool_path: Path, turks_skills_path: Path, out_dir: Path,
+          fill: bool = False) -> dict:
     stats: Counter = Counter()
     turks = read_records(dataturks_path)
     gemini_turks = {r.id: r for r in read_records(turks_skills_path)}
@@ -99,6 +175,8 @@ def build(dataturks_path: Path, pool_path: Path, turks_skills_path: Path, out_di
 
     for record in read_records(pool_path):
         record = drop_non_year_graduation_years(record, stats)
+        if fill:
+            record = fill_placeholders(record, stats)
         record.split = "dev" if in_pool_dev(record.id) else "train"
         splits[record.split].append(record)
 
@@ -143,13 +221,15 @@ def main() -> int:
     make.add_argument("--pool", type=Path, required=True)
     make.add_argument("--turks-skills", type=Path, required=True)
     make.add_argument("--out", type=Path, required=True)
+    make.add_argument("--fill-placeholders", action="store_true",
+                      help="replace LiveCareer's 'Company Name' / 'City , State' with labelled invented values")
     args = parser.parse_args()
 
     if args.command == "skill-inputs":
         print(f"{write_skill_inputs(args.dataturks, args.out)} resumes written to {args.out}")
         return 0
     try:
-        report = build(args.dataturks, args.pool, args.turks_skills, args.out)
+        report = build(args.dataturks, args.pool, args.turks_skills, args.out, fill=args.fill_placeholders)
     except ValueError as error:
         print("Nothing written:\n" + str(error), file=sys.stderr)
         return 1

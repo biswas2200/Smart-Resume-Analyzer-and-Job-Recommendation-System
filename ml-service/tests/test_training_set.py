@@ -6,9 +6,9 @@ from collections import Counter
 
 import pytest
 
-from training.data_prep.schema import Entity, Record
+from training.data_prep.schema import Entity, Record, validate_record
 from training.data_prep.training_set import (
-    build, drop_non_year_graduation_years, in_pool_dev, merge_skills,
+    build, drop_non_year_graduation_years, fill_placeholders, in_pool_dev, merge_skills,
 )
 
 TEXT = "Ann Lee\nSkills: Python, SQL and Excel\nB.Sc, Leeds University, 2015"
@@ -107,3 +107,48 @@ def test_build_refuses_when_a_train_resume_has_no_gemini_skills(tmp_path):
     with pytest.raises(ValueError, match="no Gemini skills"):
         build(turks, pool, skills, out)
     assert not out.exists()
+
+
+# --- placeholder filling ---------------------------------------------------------------
+
+
+def test_placeholders_are_filled_labelled_and_later_entities_shift():
+    text = "HR Director\nCompany Name － City , State\nPython, SQL"
+    record = Record("livecareer-9", "gemini:x", "train", text,
+                    [_span(text, "HR Director", "Designation"), _span(text, "Python", "Skills"), _span(text, "SQL", "Skills")])
+    stats = Counter()
+
+    filled = fill_placeholders(record, stats)
+
+    labels = _labels(filled)
+    assert labels[0] == ("Designation", "HR Director")
+    assert labels[1][0] == "Companies worked at" and labels[1][1] not in ("Company Name", "")
+    assert labels[2][0] == "Location" and " , " in labels[2][1] and labels[2][1] != "City , State"
+    assert labels[3:] == [("Skills", "Python"), ("Skills", "SQL")]       # still on the right words
+    assert "Company Name" not in filled.text and "City , State" not in filled.text
+    assert validate_record(filled) == []
+    assert stats == {"placeholder_filled_Companies worked at": 1, "placeholder_filled_Location": 1}
+
+
+def test_filling_depends_only_on_the_resume_id():
+    text = "Company Name City , State"
+    a = fill_placeholders(Record("livecareer-1", "g", "train", text), Counter())
+    b = fill_placeholders(Record("livecareer-1", "g", "train", text), Counter())
+    assert a.text == b.text
+
+
+def test_a_company_placeholder_on_an_education_line_is_left_alone():
+    text = "Bachelor of Science Company Name City , State"
+    stats = Counter()
+    filled = fill_placeholders(Record("livecareer-2", "g", "train", text), stats)
+    assert "Company Name" in filled.text
+    assert [label for label, _ in _labels(filled)] == ["Location"]
+    assert stats["placeholder_on_education_line_kept"] == 1
+
+
+def test_a_placeholder_inside_an_existing_entity_is_left_alone():
+    text = "Manager at Company Name"
+    record = Record("livecareer-3", "g", "train", text, [Entity(0, len(text), "Designation")])
+    stats = Counter()
+    assert fill_placeholders(record, stats).text == text
+    assert stats["placeholder_inside_entity_kept"] == 1
