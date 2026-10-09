@@ -18,6 +18,7 @@ Each layer's stack and whether it is built or planned. Sources: the repo root `R
 | Cloud tiers | Cloud Web Free, Cloud Web Premium (hosted on GCP). The offline Community Edition is archived in [`docs/archive/community-edition.md`](archive/community-edition.md) | Implemented MVP |
 | Packaging and hosting | Docker Compose on a GCP Compute Engine VM (Option A) funded by the $300 credit; Cloud Run serverless option (planned hybrid) | Compose implemented; GCP planned |
 | Model training | Cloud-based training on a GCP GPU instance / Vertex AI Workbench; HF `Trainer` (NER distillation), `SentenceTransformerTrainer` (embedder) | Planned (step 7), `ml-service/training/` |
+| Training-data labelling | `gemini-3.5-flash-lite` on Vertex AI (ADC, no key), prompt v3, offline, public datasets only; about $0.0035 per resume, about $9 for the 2,461-resume LiveCareer pool. The app's runtime Gemini calls stay on `gemini-2.5-flash-lite` | Tooling implemented (`ml-service/training/data_prep/`, runbook `LABELLING.md`); pool run pending |
 | CI | Golden parity suite run against the deployed engine API; `scripts/bench.py` for latency/RSS | Planned (step 6) |
 | Docs | MkDocs + Material, content under `docs/`, config `mkdocs.yml` at the repo root | This folder |
 

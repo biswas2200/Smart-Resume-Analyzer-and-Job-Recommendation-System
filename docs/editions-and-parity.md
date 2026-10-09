@@ -89,7 +89,7 @@ Local consumer hardware doesn't have the VRAM or compute, so fine-tuning and dis
 
 | Track | Model | Tooling | Data | Compute | Outcome |
 |---|---|---|---|---|---|
-| A. NER (first) | Continue-train `yashpwr/resume-ner-bert`, then distil into a 6-layer student (DistilBERT or MiniLM-L6-H384) | HF `Trainer`, token classification; distillation = KL(student, teacher) + CE(labels) | See [Datasets §1](datasets.md#1-resume-corpora-parser-and-golden-tests) | ≈ 15 to 20 min on GCP T4 GPU (< $0.20) | NER model from 431 MB to ≈ 130 MB fp32 (≈ 35 MB int8), beating the current baseline (60 % / 64 % field macro F1, see `supporting-docs/ml-pipeline.md` (section "NER model baseline")) |
+| A. NER (first) | Continue-train `yashpwr/resume-ner-bert`, then distil into a 6-layer student (DistilBERT or MiniLM-L6-H384) | HF `Trainer`, token classification; distillation = KL(student, teacher) + CE(labels) | See [Datasets §1](datasets.md#1-resume-corpora-parser-and-golden-tests); unlabelled LiveCareer resumes labelled offline by `gemini-3.5-flash-lite` (`ml-service/training/data_prep/LABELLING.md`) | ≈ 15 to 20 min on GCP T4 GPU (< $0.20) | NER model from 431 MB to ≈ 130 MB fp32 (≈ 35 MB int8), beating the current baseline (60 % / 64 % field macro F1, see `supporting-docs/ml-pipeline.md` (section "NER model baseline")) |
 | B. Embedder | `all-MiniLM-L6-v2` | `SentenceTransformerTrainer` + `MultipleNegativesRankingLoss` | ESCO occupation→skill pairs, TalentCLEF title pairs, taxonomy variants | minutes on GCP T4 GPU | +4.3 % mAP on title matching; vectors precomputed for runtime lookup |
 | C. Optional decoder | Qwen3-0.6B LoRA for Premium extraction or narrative | Soup or TRL, export GGUF/ONNX | Own instruction set | ~1 hr on GCP T4 GPU | Fast layout-aware extraction |
 

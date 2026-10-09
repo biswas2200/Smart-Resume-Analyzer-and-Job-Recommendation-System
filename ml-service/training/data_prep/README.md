@@ -20,10 +20,10 @@ python -m training.data_prep.build --datasets-dir ../datasets --out /tmp/smoke -
 |---|---|
 | `schema.py` | The record format, the model's 25 BIO labels in model order, and `validate_record` |
 | `dataturks.py` | DataTurks (220 labelled Indeed resumes): fixes offsets, trims spaces, resolves overlaps, assigns splits |
-| `livecareer.py` | LiveCareer `Resume.csv` (2,484 resumes, 24 fields): HTML to text, the unlabelled pool for Gemini |
+| `livecareer.py` | LiveCareer `Resume.csv` (2,484 resumes, 24 fields): HTML to text, the unlabelled pool for Gemini labelling (`gemini-3.5-flash-lite`) |
 | `bio.py` | A labelled record as one tag per word |
 | `build.py` | Runs everything, validates, writes the files and `report.json` |
-| `gemini_label.py` | Labels the unlabelled pool with Gemini; read [LABELLING.md](LABELLING.md) first |
+| `gemini_label.py` | Labels the unlabelled pool with `gemini-3.5-flash-lite` (prompt v3); read [LABELLING.md](LABELLING.md) first |
 
 ## The record format
 
@@ -43,7 +43,7 @@ entity:
 | `train` | DataTurks 1 to 100 | Training |
 | `dev` | DataTurks 101 to 110 | Choosing when to stop training |
 | `test` | DataTurks 111 to 220 | The same held-out half the 60 % baseline was measured on, so a retrained model is compared like for like |
-| `unlabelled` | 2,461 LiveCareer resumes | Input for Gemini labelling |
+| `unlabelled` | 2,461 LiveCareer resumes | Input for labelling with `gemini-3.5-flash-lite` |
 
 The 20 LiveCareer resumes in `datasets/eval-unseen/` (the 64 % baseline) are
 excluded from the pool, so they are never trained on.

@@ -187,15 +187,28 @@ gcloud storage rsync --recursive ~/data/prepared $BUCKET/prepared
 
 What the build does and how to read its report: [data_prep/README.md](data_prep/README.md).
 
-## 6. Gemini labelling (on the VM)
+## 6. Gemini labelling with `gemini-3.5-flash-lite` (on the VM)
 
-The VM's service account is its Google login, so the ML service code finds
-credentials with no setup. Set `GOOGLE_CLOUD_PROJECT=$PROJECT` and
+The unlabelled resumes are labelled by `gemini-3.5-flash-lite` with prompt v3,
+the model chosen after measuring quality and cost on two check sets
+([data_prep/LABELLING.md](data_prep/LABELLING.md)). The app's own Gemini
+calls (Premium extraction and coaching) are unaffected and stay on
+`gemini-2.5-flash-lite`.
+
+The VM's service account is its Google login, so the code finds credentials
+with no setup. Set `GOOGLE_CLOUD_PROJECT=$PROJECT` and
 `GOOGLE_CLOUD_LOCATION=global` in `ml-service/.env`.
 
-Before any full labelling run, follow the cost rule: run
-`scripts/llm_cost_check.py` as a dry run, then on a small real sample, and
-compare the assumed cost with the actual cost.
+Follow the cost rule with the labeller's own checks: `--dry-run` for the
+estimate, a `--limit 10` sample to compare assumed with actual cost, the
+quality gate in LABELLING.md, then the full run with `--max-usd 12` (about $9
+for the 2,461-resume pool).
+
+```bash
+python -m training.data_prep.gemini_label ~/data/prepared/records/livecareer_unlabelled.jsonl \
+  --model gemini-3.5-flash-lite --out ~/data/labelled/gemini-3.5-flash-lite.v3.jsonl --max-usd 12
+gcloud storage rsync --recursive ~/data/labelled $BUCKET/labelled
+```
 
 ## 7. Stop paying when done
 

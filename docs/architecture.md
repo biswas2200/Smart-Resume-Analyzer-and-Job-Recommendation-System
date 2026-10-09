@@ -48,8 +48,10 @@ flowchart TB
     end
 
     subgraph Training["GCP Cloud Training Track (ml-service/training/)"]
+        LABEL["Training-data labelling\n(Gemini 3.5 Flash-Lite, offline)"]
         TRAIN_NER["NER Continue-Training & Distillation"]
         TRAIN_EMB["SentenceTransformer Fine-Tuning"]
+        LABEL --> TRAIN_NER
     end
 
     DB[("PostgreSQL 15\nusers · resumes · parsed_profiles · roles\nskill_vectors · recommendations · feedback")]

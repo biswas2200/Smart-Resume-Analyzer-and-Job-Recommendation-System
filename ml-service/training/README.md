@@ -17,8 +17,9 @@ By leveraging **Google Cloud Platform (GCP)** and the allocated **$300 GCP credi
 
 ## 2. GCP Infrastructure Setup
 
-> Data work comes before training: uploading the datasets, cleaning, and Gemini
-> labelling run on a CPU VM and BigQuery, described in [gcp-setup.md](gcp-setup.md).
+> Data work comes before training: uploading the datasets, cleaning, and labelling
+> the unlabelled resumes with `gemini-3.5-flash-lite` run on a CPU VM and BigQuery, described in
+> [gcp-setup.md](gcp-setup.md); model choice and costs are in [data_prep/LABELLING.md](data_prep/LABELLING.md).
 > The cleaning code and its checks are in [data_prep/](data_prep/README.md).
 > This section covers the GPU VM used for training afterwards.
 
