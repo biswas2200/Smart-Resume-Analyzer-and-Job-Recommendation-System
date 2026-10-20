@@ -4,14 +4,107 @@
     <meta charset="utf-8" />
     <title>Smart Resume Analyser</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="icon" href="favicon.ico" sizes="32x32" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&display=swap" />
+    <link rel="stylesheet" href="css/app.css" />
+    <script src="js/quiet-mode.js"></script>
   </head>
   <body>
-    <!-- Entry point: send a signed-in user to their dashboard, everyone else to sign in. -->
-    <script type="module">
-      import { isAuthenticated } from './js/core/session.js';
+    <header id="app-header" class="masthead"></header>
 
-      location.replace(isAuthenticated() ? 'dashboard.html' : 'login.html');
-    </script>
+    <!-- The cover: a two-page story page. Scrolling down turns to the contents. -->
+    <main class="book" id="book" tabindex="-1">
+      <section class="page" id="cover" data-chapter="cover" data-title="Cover"
+               aria-label="Cover: Smart Resume Analyser, issue 1">
+        <div class="page-inner cover">
+          <div class="panel" style="--tilt: -0.6deg">
+            <p class="caption">Issue #1 · Your legend begins</p>
+            <h1 class="logo-big misprint">Smart Resume Analyser</h1>
+            <p class="tagline">Every career is a story. Find the next chapter of yours.</p>
+            <p>
+              Upload your resume once. See your field, your ATS score, the roles that fit you and how
+              close you are to any job you want.
+            </p>
+            <div class="cta-row">
+              <a class="burst" id="cover-start" href="register.html">
+                <span class="burst-ink"><span class="burst-fill" data-field="start-label">Start your journey!</span></span>
+              </a>
+              <a class="btn" id="cover-second" href="login.html">Sign in</a>
+            </div>
+            <p class="note"><a href="#contents">See what's inside this issue</a></p>
+          </div>
+          <div class="panel hero-panel" style="--tilt: 0.8deg">
+            <div class="rays"></div>
+            <svg class="road" viewBox="0 0 400 300" preserveAspectRatio="xMidYMax slice" role="img"
+                 aria-label="A road winding toward the horizon, with a red flag at the end">
+              <circle class="sun" cx="200" cy="146" r="38"></circle>
+              <path class="mtn" d="M0 212 L70 140 L120 186 L180 118 L250 190 L310 134 L400 206 V300 H0 Z"></path>
+              <path class="hill" d="M0 236 Q90 200 180 228 T400 222 V300 H0 Z"></path>
+              <path class="road-path" d="M148 300 C176 270 140 250 178 232 C200 222 190 214 197 208 L205 208 C203 218 216 226 200 238 C172 256 222 274 238 300 Z"></path>
+              <path class="road-dash" d="M193 298 C201 280 177 262 193 248 C201 241 199 232 201 214"></path>
+              <line class="flag-pole" x1="206" y1="209" x2="206" y2="184"></line>
+              <path class="flag-cloth" d="M206 184 L224 190 L206 196 Z"></path>
+            </svg>
+            <p class="caption hero-cap">The road ahead</p>
+            <p class="price-box">Free issue<small>Premium chapters inside</small></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="contents" data-chapter="cover" data-title="Inside"
+               aria-label="Inside this issue: the chapters, and what is free and what is Premium">
+        <div class="page-inner">
+          <p class="caption chapter-cap">Inside this issue</p>
+          <div class="grid-2">
+            <div class="stack">
+              <div class="panel" style="--tilt: -0.4deg">
+                <h2 class="misprint">Five chapters, one journey</h2>
+                <ol class="steps">
+                  <li><p><b>The Call.</b> Create an account, or sign in to the one you have.</p></li>
+                  <li><p><b>The Map.</b> Upload your resume (PDF or DOCX) and we read it in seconds.</p></li>
+                  <li><p><b>The Omens.</b> Your field, your ATS score and the first thing to fix.</p></li>
+                  <li><p><b>Paths Ahead.</b> Roles that fit you, with the skills you have and the ones to add.</p></li>
+                  <li><p><b>The Treasure.</b> Paste any job description and see how close you are.</p></li>
+                </ol>
+              </div>
+              <div class="cta-row">
+                <a class="burst" id="contents-start" href="register.html">
+                  <span class="burst-ink"><span class="burst-fill" data-field="start-label">Begin!</span></span>
+                </a>
+              </div>
+            </div>
+            <div class="stack">
+              <div class="panel tier-panel" style="--tilt: 0.5deg">
+                <h3>Free issue</h3>
+                <ul class="tier-list">
+                  <li>ATS score with every check explained</li>
+                  <li>Engineering &amp; Technology resumes analysed in full, as often as you like</li>
+                  <li>Other fields: 3 AI analyses a month</li>
+                  <li>Your top 3 role matches</li>
+                  <li>Coaching notes on what to fix</li>
+                </ul>
+              </div>
+              <div class="panel tier-panel premium" style="--tilt: -0.5deg">
+                <h3>Premium chapters</h3>
+                <ul class="tier-list">
+                  <li>Unlimited AI analyses in every field</li>
+                  <li>Your top 5 role matches</li>
+                  <li>Coaching notes written for you by AI</li>
+                  <li>The Treasure: match your resume to any job description</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer id="app-gutter" class="gutter"></footer>
+
+    <script type="module" src="js/pages/cover.js"></script>
   </body>
 </html>

@@ -54,21 +54,23 @@ export function setBusy(button, busy, busyLabel) {
   button.textContent = busy ? busyLabel : button.dataset.idleLabel;
 }
 
-/** Renders a row of skill chips (Bootstrap badges) into `container`, replacing what was there. */
-export function renderSkillChips(container, skills, variant) {
-  container.replaceChildren(
+/**
+ * Fills a `<ul class="stickers">` with one sticker per skill, replacing what was there. The
+ * list's own class picks the colour: `have` (green), `add` (yellow) or plain.
+ */
+export function renderStickers(list, skills) {
+  list.replaceChildren(
     ...skills.map((skill) => {
-      const chip = document.createElement('span');
-      chip.className = `badge rounded-pill skill-chip skill-chip--${variant}`;
-      chip.textContent = skill;
-      return chip;
+      const sticker = document.createElement('li');
+      sticker.textContent = skill;
+      return sticker;
     }),
   );
 }
 
 /**
- * Marks a form input invalid (Bootstrap `.is-invalid`) and writes the message into its
- * `.invalid-feedback` sibling; pass a null message to clear it.
+ * Marks a form input invalid (`.is-invalid`, `aria-invalid`) and writes the message into its
+ * `<id>-error` element; pass a null message to clear it.
  */
 export function setFieldError(input, message) {
   const feedback = byId(`${input.id}-error`);

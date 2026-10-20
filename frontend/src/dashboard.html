@@ -2,74 +2,109 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Dashboard · Smart Resume Analyser</title>
+    <title>Your story · Smart Resume Analyser</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
-          integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous" />
+    <link rel="icon" href="favicon.ico" sizes="32x32" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&display=swap" />
     <link rel="stylesheet" href="css/app.css" />
+    <script src="js/quiet-mode.js"></script>
   </head>
   <body>
-    <header id="app-header"></header>
+    <header id="app-header" class="masthead"></header>
 
-    <main class="container py-4" style="max-width: 900px">
-      <h1 class="h2 mb-4">Dashboard</h1>
+    <!-- Chapters 3 to 5, a story page: scrolling down turns the page sideways. -->
+    <main class="book" id="book" tabindex="-1">
 
-      <p id="loading" class="text-body-secondary">
-        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading…
-      </p>
+      <!-- Loading, error and no-resume states: shown on their own until the dashboard arrives. -->
+      <section class="page arrive" id="status" data-chapter="omens" data-title="The Omens" aria-label="Your story">
+        <div class="page-inner narrow">
+          <div id="loading" class="panel loader" role="status">
+            <svg class="loader-hawk" aria-hidden="true"><use href="#hawk"></use></svg>
+            <p><b>Reading the omens…</b></p>
+          </div>
 
-      <div id="load-error" class="alert alert-danger" role="alert" hidden></div>
+          <div id="load-error-panel" class="group" hidden>
+            <div id="load-error" class="callout" role="alert"></div>
+            <div class="row"><button id="retry-button" type="button" class="btn primary">Try again</button></div>
+          </div>
 
-      <!-- No resume uploaded yet (the dashboard endpoint returned no body). -->
-      <div id="upload-prompt" class="card shadow-sm" hidden>
-        <div class="card-body">
-          <p>Upload a resume to see your ATS score and personalized role recommendations.</p>
-          <a href="upload.html" class="btn btn-primary">Upload your resume</a>
+          <!-- No resume uploaded yet (the dashboard endpoint returned no body). -->
+          <div id="upload-prompt" class="panel empty-state" style="--tilt: -0.4deg" hidden>
+            <svg class="big-page" aria-hidden="true"><use href="#page"></use></svg>
+            <h1 class="title">No map yet!</h1>
+            <p>Upload a resume to see your field, your ATS score and the roles that fit you.</p>
+            <a class="burst" href="upload.html">
+              <span class="burst-ink"><span class="burst-fill">Upload your resume</span></span>
+            </a>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div id="dashboard-content" hidden>
-        <!-- Detected field -->
-        <section id="domain-card" class="card shadow-sm mb-4" hidden>
-          <div class="card-body">
-            <h2 class="h5">Detected field</h2>
-            <p class="d-flex flex-wrap align-items-center gap-2 mb-0">
-              <span id="domain-name" class="fs-5 fw-semibold"></span>
-              <span id="domain-confidence" class="badge rounded-pill text-bg-light border"></span>
-              <span id="domain-engine" class="badge rounded-pill"></span>
+      <!-- Chapter 3 -->
+      <section class="page" id="omens" data-chapter="omens" data-title="The Omens"
+               aria-label="Chapter 3: The Omens" hidden>
+        <div class="page-inner">
+          <h1 class="caption chapter-cap">Chapter 3 · The Omens</h1>
+          <div class="grid-3">
+            <section id="domain-card" class="panel" style="--tilt: -0.5deg" aria-labelledby="domain-title" hidden>
+              <h2 class="panel-title" id="domain-title">Your field</h2>
+              <p id="domain-name" class="big-word misprint"></p>
+              <div class="chips">
+                <span id="domain-confidence" class="chip good"></span>
+                <span id="domain-engine" class="chip"></span>
+              </div>
+              <p id="domain-note" class="note"></p>
+              <p id="ai-allowance" class="note" hidden></p>
+            </section>
+
+            <section class="panel" style="--tilt: 0.4deg" aria-labelledby="ats-title">
+              <h2 class="panel-title" id="ats-title">Power meter</h2>
+              <p class="score-line"><span id="ats-score" class="score-big"></span><span id="ats-max"></span></p>
+              <div id="ats-meter" class="meter" role="img">
+                <span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <p id="ats-change" class="note" hidden></p>
+            </section>
+
+            <section class="panel" style="--tilt: -0.3deg" aria-labelledby="checks-title">
+              <h2 class="panel-title" id="checks-title">Checks</h2>
+              <ul id="ats-checks" class="checks"></ul>
+            </section>
+          </div>
+
+          <section class="panel coaching" style="--tilt: 0.3deg" aria-labelledby="coaching-title">
+            <div class="coach-head">
+              <svg class="mini-hawk" aria-hidden="true"><use href="#hawk"></use></svg>
+              <h2 class="panel-title" id="coaching-title">Kite's notes</h2>
+              <span id="coaching-badge" class="chip"></span>
+            </div>
+            <div id="explanation" class="bubbles"></div>
+            <p id="coaching-upgrade-hint" class="note" hidden>
+              On Premium, these notes are written for you by AI.
             </p>
-            <p id="ai-allowance" class="small text-body-secondary mt-2 mb-0" hidden></p>
-          </div>
-        </section>
+            <div class="row">
+              <a class="btn" href="upload.html">Upload a new version</a>
+              <span class="note">Fixed something? Upload again and watch the meter move.</span>
+            </div>
+          </section>
+        </div>
+      </section>
 
-        <!-- ATS compatibility -->
-        <section class="card shadow-sm mb-4">
-          <div class="card-body">
-            <h2 class="h5">ATS compatibility</h2>
-            <p id="ats-score" class="fs-3 fw-semibold mb-2"></p>
-            <ul id="ats-checks" class="list-unstyled mb-0"></ul>
-          </div>
-        </section>
+      <!-- Chapter 4 -->
+      <section class="page" id="paths" data-chapter="paths" data-title="Paths Ahead"
+               aria-label="Chapter 4: Paths Ahead" hidden>
+        <div class="page-inner">
+          <h1 class="caption chapter-cap">Chapter 4 · Paths Ahead</h1>
 
-        <!-- Coaching notes -->
-        <section class="card shadow-sm mb-4">
-          <div class="card-body">
-            <h2 class="h5">
-              Coaching notes
-              <span id="coaching-badge" class="badge rounded-pill align-middle ms-2"></span>
-            </h2>
-            <p id="explanation" class="preserve-lines mb-0"></p>
-            <p id="coaching-upgrade-hint" class="small text-body-secondary mt-2 mb-0" hidden>
-              Upgrade to Premium for an AI-written coaching narrative.
-            </p>
-          </div>
-        </section>
-
-        <!-- Recommendations withheld: wording follows lockReason. -->
-        <section id="locked-card" class="card locked-card shadow-sm mb-4" hidden>
-          <div class="card-body">
-            <h2 class="h5">Recommended roles</h2>
+          <!-- Recommendations withheld: wording follows lockReason. -->
+          <section id="locked-card" class="panel locked" style="--tilt: -0.3deg" aria-labelledby="locked-title" hidden>
+            <svg class="padlock" aria-hidden="true"><use href="#padlock"></use></svg>
+            <h2 class="panel-title" id="locked-title">A locked path</h2>
 
             <p id="locked-community" hidden>
               Role recommendations and skill gaps for <strong data-field="domain-name"></strong> need the
@@ -83,7 +118,7 @@
               not limited.
             </p>
 
-            <div id="locked-default" hidden>
+            <div id="locked-default" class="group" hidden>
               <p>
                 Role recommendations and skill gaps for <strong data-field="domain-name"></strong> come from
                 the AI engine. Engineering &amp; Technology resumes are unlimited for everyone on the local
@@ -93,98 +128,126 @@
               <p id="locked-allowance" hidden></p>
             </div>
 
-            <div id="unlock-section" hidden>
+            <div id="unlock-section" class="group" hidden>
               <p id="unlock-message"></p>
-              <button id="reanalyze-button" type="button" class="btn btn-primary">Re-analyse my resume</button>
-              <p id="reanalyze-error" class="text-danger mt-2 mb-0" hidden></p>
+              <div class="row">
+                <button id="reanalyze-button" type="button" class="btn primary">Re-analyse my resume</button>
+              </div>
+              <p id="reanalyze-error" class="error-line" hidden></p>
             </div>
 
-            <p id="locked-upgrade-hint" class="small text-body-secondary mb-0" hidden>
-              Upgrade to Premium for unlimited AI analyses, an AI-written coaching narrative and five role
+            <p id="locked-upgrade-hint" class="note" hidden>
+              Upgrade to Premium for unlimited AI analyses, coaching notes written by AI and five role
               matches.
             </p>
-          </div>
-        </section>
+          </section>
 
-        <!-- Ranked role matches -->
-        <section id="recommendations-section" class="mb-4" hidden>
-          <h2 class="h4 mb-3">Recommended roles</h2>
-          <div id="recommendations"></div>
-        </section>
-
-        <!-- JD match (Premium) -->
-        <section class="card shadow-sm mb-4">
-          <div class="card-body">
-            <h2 class="h5">
-              Match to a job description
-              <span class="badge rounded-pill text-bg-primary align-middle ms-2">Premium</span>
-            </h2>
-
-            <div id="jd-form" hidden>
-              <p>Paste a job description to see how well this resume covers its requirements and what to add.</p>
-              <label for="jd-text" class="visually-hidden">Job description</label>
-              <textarea id="jd-text" class="form-control mb-2" rows="8"
-                        placeholder="Paste the job description here — the requirements section matters most."></textarea>
-              <button id="jd-match-button" type="button" class="btn btn-primary" disabled>Match my resume</button>
-              <p id="jd-match-error" class="text-danger mt-2 mb-0" hidden></p>
-
-              <div id="jd-result" class="border-top mt-3 pt-3" hidden>
-                <p id="jd-score" class="fs-3 fw-semibold mb-1"></p>
-                <p id="jd-components" class="small text-body-secondary"></p>
-                <p id="jd-matched-group" class="d-flex flex-wrap align-items-center gap-2" hidden>
-                  <strong>You have:</strong> <span id="jd-matched" class="d-contents"></span>
-                </p>
-                <p id="jd-missing-group" class="d-flex flex-wrap align-items-center gap-2" hidden>
-                  <strong>Add or evidence:</strong> <span id="jd-missing" class="d-contents"></span>
-                </p>
-                <p id="jd-explanation" class="preserve-lines mb-0"></p>
-              </div>
-            </div>
-
-            <p id="jd-upgrade-hint" class="small text-body-secondary mb-0" hidden>
-              Paste any job description and see exactly which of its requirements your resume covers and what
-              to add — upgrade to Premium to unlock it.
+          <!-- Ranked role matches -->
+          <div id="recommendations-section" class="group" hidden>
+            <div id="recommendations" class="grid-3 roles"></div>
+            <p id="recommendations-empty" class="panel" hidden>
+              No roles matched this resume yet. A clear Skills section helps: add one and upload again.
             </p>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
+
+      <!-- Chapter 5 -->
+      <section class="page" id="treasure" data-chapter="treasure" data-title="The Treasure"
+               aria-label="Chapter 5: The Treasure" hidden>
+        <div class="page-inner">
+          <h1 class="caption chapter-cap">Chapter 5 · The Treasure</h1>
+
+          <!-- JD match (Premium) -->
+          <div id="jd-section" class="grid-2" hidden>
+            <form id="jd-form" class="panel" style="--tilt: -0.4deg" novalidate>
+              <h2>The treasure map</h2>
+              <label for="jd-text">Paste a job description</label>
+              <textarea id="jd-text" rows="10"
+                        placeholder="Paste the job description here. The requirements section matters most."></textarea>
+              <div class="row">
+                <button id="jd-match-button" type="submit" class="btn primary" disabled>Find the treasure</button>
+                <span class="chip premium">Premium</span>
+              </div>
+              <p id="jd-match-error" class="error-line" role="alert" hidden></p>
+            </form>
+
+            <div id="jd-placeholder" class="panel result-empty">
+              <svg class="big-page" aria-hidden="true"><use href="#page"></use></svg>
+              <h2 class="panel-title">X marks the spot</h2>
+              <p class="note">Paste a job and press <b>Find the treasure</b>. Your match shows up here.</p>
+            </div>
+
+            <section id="jd-result" class="panel" style="--tilt: 0.4deg" aria-labelledby="jd-verdict" hidden>
+              <div class="result-top">
+                <p class="score-burst" id="jd-score"></p>
+                <div>
+                  <h2 class="panel-title" id="jd-verdict"></h2>
+                  <dl class="facts">
+                    <dt>Requirements covered</dt><dd id="jd-coverage"></dd>
+                    <dt>Skill similarity</dt><dd id="jd-similarity"></dd>
+                    <div id="jd-closest-group" class="contents">
+                      <dt>Reads like</dt><dd id="jd-closest"></dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+              <div id="jd-matched-group" class="group" hidden>
+                <p class="label">You have</p>
+                <ul id="jd-matched" class="stickers have"></ul>
+              </div>
+              <div id="jd-missing-group" class="group" hidden>
+                <p class="label">Add or evidence</p>
+                <ul id="jd-missing" class="stickers add"></ul>
+              </div>
+              <p id="jd-explanation" class="bubble preserve-lines"></p>
+            </section>
+          </div>
+
+          <section id="jd-upgrade-hint" class="panel locked" style="--tilt: -0.3deg" aria-labelledby="jd-locked-title" hidden>
+            <svg class="padlock" aria-hidden="true"><use href="#padlock"></use></svg>
+            <h2 class="panel-title" id="jd-locked-title">A Premium chapter</h2>
+            <p>
+              Paste any job description and see exactly which of its requirements your resume covers and
+              what to add. Upgrade to Premium to unlock it.
+            </p>
+          </section>
+        </div>
+      </section>
     </main>
+
+    <footer id="app-gutter" class="gutter"></footer>
 
     <!-- One ATS check row. -->
     <template id="ats-check-template">
-      <li class="py-1">
-        <strong data-field="name"></strong> — <span data-field="detail"></span>
-      </li>
+      <li><span class="chip" data-field="status"></span><span data-field="detail"></span></li>
     </template>
 
     <!-- One recommended role. -->
     <template id="recommendation-template">
-      <article class="card shadow-sm mb-3">
-        <div class="card-body">
-          <header class="d-flex justify-content-between align-items-baseline gap-3">
-            <h3 class="h5 mb-2" data-field="title"></h3>
-            <span class="fw-semibold text-primary text-nowrap" data-field="match"></span>
-          </header>
-          <p data-field="description"></p>
-
-          <p class="d-flex flex-wrap align-items-center gap-2" data-field="matched-group">
-            <strong>Matched:</strong> <span class="d-contents" data-field="matched"></span>
-          </p>
-          <p class="d-flex flex-wrap align-items-center gap-2" data-field="missing-group">
-            <strong>Missing:</strong> <span class="d-contents" data-field="missing"></span>
-          </p>
-
-          <div class="d-flex flex-wrap align-items-center gap-2 border-top pt-3 mt-3 small text-body-secondary">
-            <span>Was this recommendation helpful?</span>
-            <button type="button" class="btn btn-sm btn-outline-primary" data-field="helpful">Helpful</button>
-            <button type="button" class="btn btn-sm btn-outline-primary" data-field="not-helpful">Not helpful</button>
-          </div>
+      <article class="panel">
+        <div class="match-row">
+          <p class="match"><span data-field="match"></span>% match</p>
+          <span class="chip new" data-field="new" hidden>New!</span>
+        </div>
+        <h2 class="panel-title" data-field="title"></h2>
+        <p data-field="description"></p>
+        <div class="group" data-field="matched-group">
+          <p class="label">You have</p>
+          <ul class="stickers have" data-field="matched"></ul>
+        </div>
+        <div class="group" data-field="missing-group">
+          <p class="label">Add</p>
+          <ul class="stickers add" data-field="missing"></ul>
+        </div>
+        <div class="vote" role="group" data-field="vote">
+          <span class="note">Was this helpful?</span>
+          <button type="button" aria-pressed="false" data-field="helpful">Helpful</button>
+          <button type="button" aria-pressed="false" data-field="not-helpful">Not helpful</button>
         </div>
       </article>
     </template>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
     <script type="module" src="js/pages/dashboard.js"></script>
   </body>
 </html>

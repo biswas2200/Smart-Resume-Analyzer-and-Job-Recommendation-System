@@ -1,68 +1,88 @@
 import { clearSession, getUser } from '../core/session.js';
 import { tierLabel } from '../pages/dashboard-rules.js';
+import { installArt } from './art.js';
+
+// The masthead: the logo, the chapter tabs (Kite perches over the chapter being read) and the
+// signed-in account. Chapters past The Call need an account, so a signed-out reader sees their
+// tabs greyed out.
+
+export const CHAPTERS = [
+  { id: 'cover', label: 'Cover', title: 'Cover', href: 'index.html', needsAccount: false },
+  { id: 'call', label: 'Call', title: 'Chapter 1: The Call', href: 'login.html', needsAccount: false },
+  { id: 'map', label: 'Map', title: 'Chapter 2: The Map', href: 'upload.html', needsAccount: true },
+  { id: 'omens', label: 'Omens', title: 'Chapter 3: The Omens', href: 'dashboard.html#omens', needsAccount: true },
+  { id: 'paths', label: 'Paths', title: 'Chapter 4: Paths Ahead', href: 'dashboard.html#paths', needsAccount: true },
+  { id: 'treasure', label: 'Treasure', title: 'Chapter 5: The Treasure', href: 'dashboard.html#treasure', needsAccount: true },
+];
+
+let currentChapter = 'cover';
 
 /**
- * Renders the app-wide Bootstrap navbar into `<header id="app-header">`. Shows sign-in /
- * create-account links when signed out, or the user's email, tier badge, the main feature
- * links and a logout button when signed in. Call again after the stored user changes (e.g.
- * after `GET /auth/me`) to refresh the tier badge.
+ * Renders the masthead into `<header id="app-header">` with Kite over the tab of `chapterId`.
+ * Call again after the stored user changes (e.g. after `GET /auth/me`) to refresh the tier.
  */
-export function renderHeader() {
+export function renderHeader(chapterId = currentChapter) {
+  installArt();
+  currentChapter = chapterId;
   const header = document.getElementById('app-header');
   const user = getUser();
-  const currentPage = location.pathname.split('/').pop() || 'index.html';
 
-  // The static markup below contains no user data; the email and role are filled in
-  // afterwards with textContent.
+  // The static markup below contains no user data; the email and tier go in afterwards with
+  // textContent.
   header.innerHTML = `
-    <nav class="navbar navbar-expand-md bg-body border-bottom" aria-label="Main navigation">
-      <div class="container">
-        <a class="navbar-brand fw-semibold" href="index.html">Smart Resume Analyser</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                data-bs-target="#main-nav" aria-controls="main-nav" aria-expanded="false"
-                aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse justify-content-end" id="main-nav">
-          <ul class="navbar-nav align-items-md-center gap-md-2">
-            ${user ? signedInLinks() : signedOutLinks()}
-          </ul>
-        </div>
-      </div>
-    </nav>`;
-
-  for (const link of header.querySelectorAll('a.nav-link')) {
-    if (link.getAttribute('href') === currentPage) {
-      link.classList.add('active');
-      link.setAttribute('aria-current', 'page');
-    }
-  }
+    <a class="logo" href="index.html">Smart Resume Analyser</a>
+    <span class="issue">Issue #1</span>
+    <nav class="chapter-map" aria-label="Chapters">
+      ${CHAPTERS.map((chapter) => chapterLink(chapter, !user && chapter.needsAccount)).join('')}
+    </nav>
+    <div class="account">${user ? signedInAccount() : signedOutAccount()}</div>`;
 
   if (user) {
     header.querySelector('[data-field="email"]').textContent = user.email;
-    const badge = header.querySelector('[data-field="tier"]');
-    badge.textContent = tierLabel(user.role);
-    badge.classList.add(user.role === 'USER' ? 'text-bg-light' : 'text-bg-primary');
+    const tier = header.querySelector('[data-field="tier"]');
+    tier.textContent = tierLabel(user.role);
+    tier.classList.toggle('premium', user.role !== 'USER');
     header.querySelector('[data-action="logout"]').addEventListener('click', () => {
       clearSession();
       location.href = 'login.html';
     });
   }
+  setChapter(chapterId);
 }
 
-function signedInLinks() {
-  return `
-    <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
-    <li class="nav-item"><a class="nav-link" href="upload.html">Upload Resume</a></li>
-    <li class="nav-item navbar-text small" data-field="email"></li>
-    <li class="nav-item"><span class="badge rounded-pill border" data-field="tier"></span></li>
-    <li class="nav-item">
-      <button type="button" class="btn btn-outline-secondary btn-sm" data-action="logout">Log out</button>
-    </li>`;
+/** Moves Kite to the tab of `chapterId`, e.g. as the dashboard's pages turn. */
+export function setChapter(chapterId) {
+  currentChapter = chapterId;
+  for (const tab of document.querySelectorAll('#app-header [data-chapter]')) {
+    if (tab.dataset.chapter === chapterId) {
+      tab.setAttribute('aria-current', 'page');
+    } else {
+      tab.removeAttribute('aria-current');
+    }
+  }
 }
 
-function signedOutLinks() {
+function chapterLink(chapter, locked) {
+  const kite = '<svg class="mini-hawk" aria-hidden="true" focusable="false"><use href="#hawk"></use></svg>';
+  if (locked) {
+    return `
+      <span class="chapter-link" data-chapter="${chapter.id}" aria-disabled="true" title="${chapter.title}: sign in to open it">
+        ${kite}<span>${chapter.label}</span><span class="sr-only">(sign in first)</span>
+      </span>`;
+  }
   return `
-    <li class="nav-item"><a class="nav-link" href="login.html">Sign in</a></li>
-    <li class="nav-item"><a class="nav-link" href="register.html">Create account</a></li>`;
+    <a class="chapter-link" data-chapter="${chapter.id}" href="${chapter.href}" title="${chapter.title}">
+      ${kite}<span>${chapter.label}</span>
+    </a>`;
+}
+
+function signedInAccount() {
+  return `
+    <span class="who" data-field="email"></span>
+    <span class="chip" data-field="tier"></span>
+    <button type="button" class="btn small" data-action="logout">Log out</button>`;
+}
+
+function signedOutAccount() {
+  return `<a class="btn small" href="login.html">Sign in</a>`;
 }
