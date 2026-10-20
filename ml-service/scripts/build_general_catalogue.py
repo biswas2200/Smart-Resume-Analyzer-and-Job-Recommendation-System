@@ -1,11 +1,15 @@
 """Build the all-domain role catalogue and general skill taxonomy from the
-LinkedIn postings dataset (datasets/archive (4)/linkedin_job_postings.csv +
-job_skills.csv, ~1.3M postings with a comma-separated skills string each).
+cleaned LinkedIn postings (Kaggle "1.3M LinkedIn Jobs & Skills 2024",
+datasets/archive (4)). training/gcp/bigquery/clean.sql collapses its reposts
+into 1.08M distinct postings; `training/gcp/bigquery.sh catalogue` exports
+the ones with skills as gzipped JSON lines, one {"job_title", "skills"} object
+per posting, which is what this script reads.
 
-Offline and deterministic: the same inputs and the same rules below always
-produce byte-identical output, so the committed JSONs can be regenerated and
-diffed. The script is a build tool, never a runtime dependency -- the ML
-service only reads the JSON files it writes:
+Offline and deterministic: the same postings and the same rules below always
+produce byte-identical output, in whatever order the export lists them, so
+the committed JSONs can be regenerated and diffed. The script is a build tool,
+never a runtime dependency -- the ML service only reads the JSON files it
+writes:
 
   app/data/role_skills_general.json   [{role, domain, description, skills}]
   app/data/skill_taxonomy_general.json {Canonical Skill: [variants]}
@@ -22,31 +26,32 @@ Skills per role are ranked by share-within-title weighted by specificity
 leads with what distinguishes it rather than with "Communication" and
 "Teamwork" -- those still appear when they genuinely dominate a title.
 
-Usage (from ml-service/):
-    python scripts/build_general_catalogue.py            # full build
-    python scripts/build_general_catalogue.py --limit 200000   # quick look
-The output is meant to be reviewed by a person before it is committed.
+Usage (from ml-service/), standard library only:
+    python scripts/build_general_catalogue.py --input DIR --out-dir OUT
+    python scripts/build_general_catalogue.py --input DIR --limit 200000   # quick look
+training/gcp/catalogue.sh runs it on Cloud Shell from the bucket and compares
+the result with the committed files (scripts/compare_catalogues.py). The
+output is meant to be reviewed by a person before it is committed.
 """
 
 import argparse
-import csv
+import gzip
 import json
 import math
 import re
 import sys
 from collections import Counter, defaultdict
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# The same folder as app.config.DATA_DIR. Not imported from there, so the
+# script needs nothing beyond the standard library and runs on a bare Python.
+DATA_DIR = Path(__file__).resolve().parent.parent / "app" / "data"
+# Local mirror of $BUCKET/cleaned/linkedin_catalogue_input/.
+DATASET_DIR = Path(__file__).resolve().parent.parent.parent / "datasets" / "cleaned" / "linkedin_catalogue_input"
 
-from app.config import DATA_DIR  # noqa: E402
-
-DATASET_DIR = Path(__file__).resolve().parent.parent.parent / "datasets" / "archive (4)"
-POSTINGS_CSV = DATASET_DIR / "linkedin_job_postings.csv"
-SKILLS_CSV = DATASET_DIR / "job_skills.csv"
-
-ROLES_OUT = DATA_DIR / "role_skills_general.json"
-TAXONOMY_OUT = DATA_DIR / "skill_taxonomy_general.json"
+ROLES_FILE = "role_skills_general.json"
+TAXONOMY_FILE = "skill_taxonomy_general.json"
 DOMAINS_PATH = DATA_DIR / "domains.json"
 
 # Tunables -- change these, re-run, review the diff.
@@ -383,62 +388,67 @@ def display_name(title: str) -> str:
     return " ".join(words)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--limit", type=int, default=None, help="only read the first N postings (for a quick look)")
-    args = parser.parse_args()
+def most_common_key(counter: Counter[str]) -> str:
+    """The most frequent key; a tie goes to the alphabetically first, so the
+    answer does not depend on the order the postings were read in."""
+    return min(counter.items(), key=lambda kv: (-kv[1], kv[0]))[0]
 
-    domains = {d["id"]: d for d in json.loads(DOMAINS_PATH.read_text(encoding="utf-8"))}
+
+def read_postings(input_dir: Path, limit: int | None = None) -> Iterator[tuple[str, list[str]]]:
+    """(job title, skills) for each posting in the export's *.json.gz files."""
+    files = sorted(input_dir.glob("*.json.gz"))
+    if not files:
+        sys.exit(f"no *.json.gz files in {input_dir}; export them with training/gcp/bigquery.sh catalogue")
+    n = 0
+    for path in files:
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            for line in f:
+                if limit is not None and n >= limit:
+                    return
+                row = json.loads(line)
+                yield row.get("job_title") or "", row.get("skills") or []
+                n += 1
+
+
+def build(postings: Iterable[tuple[str, list[str]]], domains: dict[str, dict]) -> tuple[list[dict], dict[str, list[str]]]:
+    """The role catalogue and skill taxonomy for every non-local domain."""
     general_domains = [d["id"] for d in domains.values() if d["engine"] != "local"]
 
-    # Pass 1: postings -> (domain, normalised title) per job_link.
-    link_to_role: dict[str, tuple[str, str]] = {}
-    title_display: dict[str, Counter[str]] = defaultdict(Counter)
-    with POSTINGS_CSV.open(encoding="utf-8", newline="") as f:
-        for i, row in enumerate(csv.DictReader(f)):
-            if args.limit and i >= args.limit:
-                break
-            norm = normalise_title(row["job_title"] or "")
-            if not norm or len(norm) < 3:
-                continue
-            if norm in EXCLUDED_TITLES:
-                continue
-            domain_id = assign_domain(norm)
-            if domain_id is None:
-                continue
-            link_to_role[row["job_link"]] = (domain_id, norm)
-            title_display[norm][display_name(norm)] += 1
-    print(f"assigned {len(link_to_role):,} postings to {len(general_domains)} domains", file=sys.stderr)
-
-    # Pass 2: skills -> counts per (domain, title) and global document frequency.
+    # Postings -> skill counts per (domain, normalised title), and each
+    # skill's document frequency over all assigned postings.
     role_postings: Counter[tuple[str, str]] = Counter()
     role_skill_counts: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
     skill_df: Counter[str] = Counter()
     skill_display: dict[str, Counter[str]] = defaultdict(Counter)
     total_docs = 0
-    with SKILLS_CSV.open(encoding="utf-8", newline="") as f:
-        for row in csv.DictReader(f):
-            role = link_to_role.get(row["job_link"])
-            if role is None:
+    for title, raw_skills in postings:
+        norm = normalise_title(title)
+        if not norm or len(norm) < 3:
+            continue
+        if norm in EXCLUDED_TITLES:
+            continue
+        domain_id = assign_domain(norm)
+        if domain_id is None:
+            continue
+        role = (domain_id, norm)
+        seen: set[str] = set()
+        for raw in raw_skills:
+            skill = clean_skill(raw)
+            if skill is None:
                 continue
-            seen: set[str] = set()
-            for raw in (row["job_skills"] or "").split(","):
-                skill = clean_skill(raw)
-                if skill is None:
-                    continue
-                key = skill.lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-                skill_display[key][skill] += 1
-            if not seen:
+            key = skill.lower()
+            if key in seen:
                 continue
-            total_docs += 1
-            role_postings[role] += 1
-            for key in seen:
-                role_skill_counts[role][key] += 1
-                skill_df[key] += 1
-    print(f"{total_docs:,} postings had skills", file=sys.stderr)
+            seen.add(key)
+            skill_display[key][skill] += 1
+        if not seen:
+            continue
+        total_docs += 1
+        role_postings[role] += 1
+        for key in seen:
+            role_skill_counts[role][key] += 1
+            skill_df[key] += 1
+    print(f"{total_docs:,} postings with skills assigned to {len(general_domains)} domains", file=sys.stderr)
 
     # Rank roles per domain and skills per role.
     roles_out: list[dict] = []
@@ -460,13 +470,13 @@ def main() -> None:
             scored.sort()
             picked = [k for _, k in scored[:SKILLS_PER_ROLE]]
             if len(picked) < MIN_SKILLS_PER_ROLE:
-                for key, _ in counts.most_common():
+                for key, _ in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
                     if key not in picked:
                         picked.append(key)
                     if len(picked) >= MIN_SKILLS_PER_ROLE:
                         break
-            skills = [skill_display[k].most_common(1)[0][0] for k in picked]
-            role_name = title_display[role[1]].most_common(1)[0][0]
+            skills = [most_common_key(skill_display[k]) for k in picked]
+            role_name = display_name(role[1])
             roles_out.append({
                 "role": role_name,
                 "domain": domain_id,
@@ -478,15 +488,28 @@ def main() -> None:
                 taxonomy.setdefault(skill, [skill.lower()])
 
     roles_out.sort(key=lambda r: (general_domains.index(r["domain"]), -r["source_postings"], r["role"]))
-    ROLES_OUT.write_text(json.dumps(roles_out, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    TAXONOMY_OUT.write_text(
-        json.dumps(dict(sorted(taxonomy.items())), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    return roles_out, dict(sorted(taxonomy.items()))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--input", type=Path, default=DATASET_DIR, help="folder with the export's *.json.gz files")
+    parser.add_argument("--out-dir", type=Path, default=DATA_DIR, help="where the two JSON files go (default: app/data)")
+    parser.add_argument("--limit", type=int, default=None, help="only read the first N postings (for a quick look)")
+    args = parser.parse_args()
+
+    domains = {d["id"]: d for d in json.loads(DOMAINS_PATH.read_text(encoding="utf-8"))}
+    roles_out, taxonomy = build(read_postings(args.input, args.limit), domains)
+
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    roles_path, taxonomy_path = args.out_dir / ROLES_FILE, args.out_dir / TAXONOMY_FILE
+    roles_path.write_text(json.dumps(roles_out, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    taxonomy_path.write_text(json.dumps(taxonomy, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     per_domain = Counter(r["domain"] for r in roles_out)
-    for domain_id in general_domains:
+    for domain_id in (d["id"] for d in domains.values() if d["engine"] != "local"):
         print(f"{domain_id:30s} {per_domain[domain_id]:3d} roles", file=sys.stderr)
-    print(f"wrote {len(roles_out)} roles -> {ROLES_OUT.name}, {len(taxonomy)} skills -> {TAXONOMY_OUT.name}", file=sys.stderr)
+    print(f"wrote {len(roles_out)} roles -> {roles_path}, {len(taxonomy)} skills -> {taxonomy_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":
