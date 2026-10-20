@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "description": "Static HTML + Bootstrap 5 + vanilla JS client. No dependencies; this file only marks the .js files as ES modules for Node's built-in test runner.",
+  "description": "Static HTML + CSS + vanilla JS client. No dependencies; this file only marks the .js files as ES modules for Node's built-in test runner.",
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 4200 --directory src",

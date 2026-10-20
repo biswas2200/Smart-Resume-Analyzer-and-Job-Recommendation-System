@@ -26,6 +26,21 @@ export function setText(element, text) {
 }
 
 /**
+ * Creates an element: `el('a', { class: 'link', href: 'x.html' }, 'text', child)`. Attribute
+ * values and text children are set as attributes and text nodes, so backend strings are safe.
+ */
+export function el(tag, attributes = {}, ...children) {
+  const element = document.createElement(tag);
+  for (const [name, value] of Object.entries(attributes)) {
+    if (value !== null && value !== undefined && value !== false) {
+      element.setAttribute(name, value === true ? '' : String(value));
+    }
+  }
+  element.append(...children.filter((child) => child !== null && child !== undefined));
+  return element;
+}
+
+/**
  * Clones the first element inside a `<template id="...">` so list items can be built from
  * markup that lives in the HTML file, then filled in with {@link setText}.
  */
@@ -54,18 +69,9 @@ export function setBusy(button, busy, busyLabel) {
   button.textContent = busy ? busyLabel : button.dataset.idleLabel;
 }
 
-/**
- * Fills a `<ul class="stickers">` with one sticker per skill, replacing what was there. The
- * list's own class picks the colour: `have` (green), `add` (yellow) or plain.
- */
-export function renderStickers(list, skills) {
-  list.replaceChildren(
-    ...skills.map((skill) => {
-      const sticker = document.createElement('li');
-      sticker.textContent = skill;
-      return sticker;
-    }),
-  );
+/** Fills a `<ul class="chips">` with one chip per skill, replacing what was there. */
+export function renderChips(list, skills) {
+  list.replaceChildren(...skills.map((skill) => el('li', {}, skill)));
 }
 
 /**

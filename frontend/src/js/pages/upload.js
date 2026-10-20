@@ -1,39 +1,34 @@
-import { getParsedProfile, listVersions, upload } from '../api/resume-api.js';
+import { getParsedProfile, upload } from '../api/resume-api.js';
 import { extractApiErrorMessage } from '../core/api-error.js';
-import { byId, cloneTemplate, field, hide, renderStickers, setBusy, setText, show } from '../core/dom.js';
+import { byId, cloneTemplate, el, field, hide, renderChips, setBusy, setText, show } from '../core/dom.js';
 import { requireAuth } from '../core/session.js';
 import { validateResumeFile } from '../core/validation.js';
-import { renderHeader } from '../components/header.js';
-import { celebrate, renderGutter, restart, say } from '../components/kite.js';
+import { hydrateIcons } from '../components/icons.js';
+import { renderShell, renderVersions } from '../components/shell.js';
 
-// Chapter 2, The Map: upload a PDF/DOCX as a new resume version (FR-1.5), then show the profile
-// read from it and every version uploaded so far. On load, the latest version's profile shows.
+// The resume analyzer: upload a PDF/DOCX as a new resume version (FR-1.5), preview it, and show
+// what was read from it. The left column is the resume as we read it (or the original PDF, for
+// a file chosen in this browser) above the file card; the right column is the parsing result
+// for the version picked in the version menu. `?resume=<id>` opens a given version.
 
-/** The version whose profile is on screen, so a slow load never replaces a newer upload. */
-let shownVersion = -1;
+let versions = [];
+/** The resume id on screen; a slow profile load for another version never overwrites it. */
+let shownId = null;
+/** Object URL of a PDF chosen in this browser, for the "Original file" preview. */
+let originalUrl = null;
 
 if (requireAuth()) {
-  renderHeader('map');
-  renderGutter('Show me your map, traveller. Your resume tells me where you have been.');
+  hydrateIcons();
   init();
 }
 
-function init() {
+async function init() {
   const fileInput = byId('resume-file');
   const submitButton = byId('upload-submit');
-  const errorBanner = byId('upload-error');
-  const loader = byId('upload-loader');
   const dropzone = byId('dropzone');
 
-  let versions = [];
-  loadHistory();
+  fileInput.addEventListener('change', () => chooseFile(fileInput.files[0] ?? null));
 
-  fileInput.addEventListener('change', () => {
-    hide(errorBanner);
-    showChosen(fileInput.files[0] ?? null);
-  });
-
-  // Dropping a file on the drop zone is the same as choosing it.
   for (const type of ['dragenter', 'dragover']) {
     dropzone.addEventListener(type, (event) => {
       event.preventDefault();
@@ -51,129 +46,162 @@ function init() {
     }
   });
 
-  submitButton.addEventListener('click', async () => {
-    const file = fileInput.files[0] ?? null;
-    const validationError = validateResumeFile(file);
-    if (validationError) {
-      showError(validationError);
-      return;
-    }
+  submitButton.addEventListener('click', () => onUpload(fileInput, submitButton));
+  byId('version-select').addEventListener('change', (event) => openVersion(event.target.value));
+  byId('view-parsed').addEventListener('click', () => setPreview('parsed'));
+  byId('view-original').addEventListener('click', () => setPreview('original'));
 
-    hide(errorBanner);
-    setBusy(submitButton, true, 'Uploading…');
-    show(loader);
-    say('Reading your map. Hold tight, this takes a few seconds.');
+  versions = await renderShell('resume');
+  if (versions.length === 0) {
+    return;
+  }
+  const requested = new URLSearchParams(location.search).get('resume');
+  const start = versions.find((resume) => resume.id === requested) ?? versions.at(-1);
+  renderVersionSelect();
+  show(byId('to-dashboard'));
+  openVersion(start.id);
+}
 
-    try {
-      const resume = await upload(file);
-      versions = [...versions, resume];
-      renderHistory(versions);
-      renderProfile(await getParsedProfile(resume.id), resume);
-      restart(byId('profile-card'), 'flash');
-      fileInput.value = '';
-      showChosen(null);
-      celebrate('GOT IT!');
-      say('Got it! Your map is read. Turn to the Omens to see what it says.');
-    } catch (error) {
-      // The backend's message is specific where it matters -- an unsupported file format (415)
-      // or the AI engine being unavailable for a Premium analysis (503) -- so prefer it.
-      showError(extractApiErrorMessage(error, 'Could not upload the resume. Please try again.'));
-      say("That one didn't fold right. The note above says why.");
-    } finally {
-      setBusy(submitButton, false);
-      hide(loader);
-    }
-  });
+function chooseFile(file) {
+  hide(byId('upload-error'));
+  hide(byId('upload-success'));
+  const error = file ? validateResumeFile(file) : null;
+  byId('upload-submit').disabled = !file || error !== null;
+  if (error) {
+    showError(error);
+  }
+  setText(byId('file-name'), file ? file.name : 'Upload a resume');
+  setText(byId('file-detail'), file ? `${formatSize(file.size)} · ready to upload` : 'PDF or DOCX · up to 5 MB');
 
-  async function loadHistory() {
-    try {
-      versions = await listVersions();
-      renderHistory(versions);
-      const latest = versions.at(-1);
-      if (!latest) {
-        show(byId('profile-empty'));
-        return;
-      }
-      renderProfile(await getParsedProfile(latest.id), latest);
-      say('Here is your latest map. Upload a new version whenever your story changes.');
-    } catch (error) {
-      console.error('Could not load your maps', error);
-    }
+  if (originalUrl) {
+    URL.revokeObjectURL(originalUrl);
+    originalUrl = null;
+  }
+  const isPdf = !!file && !error && file.type === 'application/pdf';
+  if (isPdf) {
+    originalUrl = URL.createObjectURL(file);
+  }
+  byId('view-original').disabled = !isPdf;
+  setPreview(isPdf ? 'original' : 'parsed');
+}
+
+async function onUpload(fileInput, submitButton) {
+  const file = fileInput.files[0] ?? null;
+  const validationError = validateResumeFile(file);
+  if (validationError) {
+    showError(validationError);
+    return;
   }
 
-  function showError(message) {
-    setText(errorBanner, message);
-    show(errorBanner);
+  hide(byId('upload-error'));
+  hide(byId('upload-success'));
+  setBusy(submitButton, true, 'Analysing…');
+  show(byId('upload-loader'));
+  try {
+    const resume = await upload(file);
+    versions = [...versions, resume];
+    renderVersionSelect();
+    await openVersion(resume.id);
+    setText(byId('file-name'), file.name);
+    setText(byId('file-detail'), `${formatSize(file.size)} · uploaded as version ${resume.version}`);
+    setText(byId('upload-success'), `Version ${resume.version} is analysed. Open the dashboard to see your score and role matches.`);
+    show(byId('upload-success'));
+    show(byId('to-dashboard'));
+    fileInput.value = '';
+    submitButton.disabled = true;
+  } catch (error) {
+    // The backend's message is specific where it matters -- an unsupported file format (415)
+    // or the AI engine being unavailable for a Premium analysis (503) -- so prefer it.
+    showError(extractApiErrorMessage(error, 'Could not upload the resume. Please try again.'));
+  } finally {
+    setBusy(submitButton, false);
+    submitButton.disabled = !fileInput.files[0];
+    hide(byId('upload-loader'));
   }
 }
 
-/** The dropzone names the chosen file, or invites one. */
-function showChosen(file) {
-  const text = byId('dropzone-text');
-  const bold = document.createElement('b');
-  if (file) {
-    setText(bold, 'Chosen:');
-    text.replaceChildren(bold, ` ${file.name} (${formatSize(file.size)})`);
-  } else {
-    setText(bold, 'Choose a resume');
-    text.replaceChildren(bold, ' or drop it here');
-  }
-}
-
-function renderHistory(versions) {
-  const list = byId('history-list');
-  show(byId('history-empty'), versions.length === 0);
-  show(list, versions.length > 0);
-  list.replaceChildren(
-    ...versions.map((resume, index) => {
-      const item = cloneTemplate('history-template');
-      const latest = index === versions.length - 1;
-      item.classList.toggle('latest', latest);
-      item.title = `Uploaded ${formatDateTime(resume.uploadedAt)}`;
-      setText(field(item, 'version'), `v${resume.version}`);
-      setText(field(item, 'date'), latest ? `Latest · ${formatDate(resume.uploadedAt)}` : formatDate(resume.uploadedAt));
-      return item;
-    }),
+/** Newest first, so the latest version is the default. */
+function renderVersionSelect() {
+  const select = byId('version-select');
+  select.replaceChildren(
+    ...[...versions].reverse().map((resume, index) =>
+      el('option', { value: resume.id }, `Version ${resume.version}${index === 0 ? ' (latest)' : ''} · ${formatDate(resume.uploadedAt)}`),
+    ),
   );
+  show(select, versions.length > 0);
+}
+
+async function openVersion(resumeId) {
+  const resume = versions.find((candidate) => candidate.id === resumeId);
+  if (!resume) {
+    return;
+  }
+  shownId = resumeId;
+  byId('version-select').value = resumeId;
+  renderVersions(versions, resumeId);
+  try {
+    history.replaceState(null, '', `?resume=${encodeURIComponent(resumeId)}`);
+  } catch {
+    // Some sandboxed previews refuse; the page works without it.
+  }
+
+  hide(byId('profile-empty'));
+  show(byId('profile-loading'));
+  try {
+    const profile = await getParsedProfile(resumeId);
+    if (shownId === resumeId) {
+      renderProfile(profile, resume);
+    }
+  } catch (error) {
+    if (shownId === resumeId) {
+      showError(extractApiErrorMessage(error, 'Could not load this version. Please try again.'));
+    }
+  } finally {
+    if (shownId === resumeId) {
+      hide(byId('profile-loading'));
+    }
+  }
 }
 
 function renderProfile(profile, resume) {
-  if (resume.version < shownVersion) {
-    return;
-  }
-  shownVersion = resume.version;
-
-  setText(byId('profile-version'), `Version ${resume.version}`);
-  setText(byId('profile-name'), profile.name || 'Name not found');
-  const contact = [profile.email, profile.phone].filter(Boolean).join(' · ');
-  setText(byId('profile-contact'), contact);
-  show(byId('profile-contact'), contact !== '');
-
   const skills = profile.skills ?? [];
-  renderStickers(byId('profile-skills'), skills);
-  show(byId('profile-skills-section'), skills.length > 0);
+  const experience = (profile.experience ?? []).map((entry) => [entry.title, entry.organization, entry.duration]);
+  const education = (profile.education ?? []).map((entry) => [entry.degree, entry.institution, entry.year]);
+  const contact = [profile.email, profile.phone].filter(Boolean).join(' · ');
 
-  renderTimeline('profile-experience', profile.experience ?? [], (entry) => [
-    entry.title,
-    entry.organization,
-    entry.duration,
-  ]);
-  renderTimeline('profile-education', profile.education ?? [], (entry) => [
-    entry.degree,
-    entry.institution,
-    entry.year,
-  ]);
+  // Right column: the parsing result.
+  setText(byId('kv-name'), profile.name || 'Not found');
+  setText(byId('kv-email'), profile.email || 'Not found');
+  setText(byId('kv-phone'), profile.phone || 'Not found');
+  setText(byId('kv-version'), `${resume.version} of ${versions.length}`);
+  setText(byId('kv-uploaded'), formatDateTime(resume.uploadedAt));
+  renderChips(byId('profile-skills'), skills);
+  setText(byId('skills-count'), String(skills.length));
+  show(byId('skills-empty'), skills.length === 0);
+  renderTimeline('profile-experience', experience);
+  show(byId('experience-empty'), experience.length === 0);
+  renderTimeline('profile-education', education);
+  show(byId('education-empty'), education.length === 0);
+  show(byId('profile-body'));
 
-  hide(byId('profile-empty'));
-  show(byId('profile-card'));
+  // Left column: the same data laid out as a page.
+  setText(byId('paper-name'), profile.name || 'Your name');
+  setText(byId('paper-contact'), contact);
+  setText(byId('paper-skills'), skills.join(' · '));
+  show(byId('paper-skills-block'), skills.length > 0);
+  fillPaperList('paper-experience', experience);
+  show(byId('paper-experience-block'), experience.length > 0);
+  fillPaperList('paper-education', education);
+  show(byId('paper-education-block'), education.length > 0);
+  hide(byId('paper-empty'));
+  show(byId('paper-content'));
+  setText(byId('preview-version'), `v${resume.version}`);
 }
 
-/** `describe(entry)` gives [what, where, when]; any of them may be missing from a resume. */
-function renderTimeline(listId, entries, describe) {
-  show(byId(`${listId}-section`), entries.length > 0);
+/** Each entry is [what, where, when]; any of them may be missing from a resume. */
+function renderTimeline(listId, entries) {
   byId(listId).replaceChildren(
-    ...entries.map((entry) => {
-      const [what, where, when] = describe(entry);
+    ...entries.map(([what, where, when]) => {
       const item = cloneTemplate('timeline-template');
       setText(field(item, 'what'), what || where || '');
       setText(field(item, 'where'), what && where ? `, ${where}` : '');
@@ -181,6 +209,31 @@ function renderTimeline(listId, entries, describe) {
       return item;
     }),
   );
+}
+
+function fillPaperList(listId, entries) {
+  byId(listId).replaceChildren(
+    ...entries.map(([what, where, when]) =>
+      el('li', {}, el('span', {}, [what, where].filter(Boolean).join(', ')), el('span', {}, when ?? '')),
+    ),
+  );
+}
+
+function setPreview(mode) {
+  const original = mode === 'original' && !!originalUrl;
+  byId('view-parsed').setAttribute('aria-selected', String(!original));
+  byId('view-original').setAttribute('aria-selected', String(original));
+  const frame = byId('original-frame');
+  if (original && frame.src !== originalUrl) {
+    frame.src = originalUrl;
+  }
+  show(frame, original);
+  show(byId('paper'), !original);
+}
+
+function showError(message) {
+  setText(byId('upload-error'), message);
+  show(byId('upload-error'));
 }
 
 function formatDate(iso) {

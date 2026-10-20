@@ -2,8 +2,8 @@ import { byId, hide, setText, show } from '../core/dom.js';
 import { clearSession, getUser, isAuthenticated } from '../core/session.js';
 
 /**
- * The Call's pages (sign in, create account) opened by a reader who is already signed in:
- * swaps the form for a panel that offers to continue the story or to switch accounts.
+ * The sign-in and create-account pages opened by someone already signed in: swaps the form
+ * for a panel that offers to go to the dashboard or to switch accounts.
  * Returns true when the panel was shown.
  */
 export function offerToContinue(form) {

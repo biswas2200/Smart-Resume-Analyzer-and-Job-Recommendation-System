@@ -2,108 +2,122 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>The Map · Smart Resume Analyser</title>
+    <title>Resume analyzer · Smart Resume Analyser</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="favicon.ico" sizes="32x32" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" />
     <link rel="stylesheet" href="css/app.css" />
-    <script src="js/quiet-mode.js"></script>
   </head>
-  <body>
-    <header id="app-header" class="masthead"></header>
+  <body class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div class="scrim" id="scrim" hidden></div>
 
-    <main class="book single" id="book">
-      <section class="page arrive" id="map" aria-label="Chapter 2: The Map">
-        <div class="page-inner">
-          <p class="caption chapter-cap">Chapter 2 · The Map</p>
-          <div class="grid-2">
-            <div class="panel upload" style="--tilt: -0.5deg">
-              <h1 class="title">Drop your map here</h1>
-              <label class="dropzone" id="dropzone" for="resume-file">
-                <svg class="drop-page" aria-hidden="true"><use href="#page"></use></svg>
-                <span id="dropzone-text"><b>Choose a resume</b> or drop it here</span>
-                <small>PDF or DOCX, up to 5 MB</small>
-              </label>
-              <input class="file-input" id="resume-file" type="file" accept=".pdf,.docx" />
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn" id="menu-button" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false"><i data-icon="menu"></i></button>
+        <div>
+          <p class="crumb">Resume analyzer</p>
+          <h1 class="page-title">My resume</h1>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn btn-primary" href="dashboard.html" id="to-dashboard" hidden>View analysis <i data-icon="arrow"></i></a>
+        </div>
+      </header>
 
-              <div id="upload-error" class="callout" role="alert" hidden></div>
+      <div class="content">
+        <div id="upload-error" class="alert alert-error" role="alert" hidden></div>
+        <div id="upload-success" class="alert alert-success" role="status" hidden></div>
 
-              <div class="row">
-                <button id="upload-submit" type="button" class="btn primary">Analyse my resume</button>
+        <div class="analyzer">
+          <section class="col-preview" aria-label="Resume preview and upload">
+            <div class="card preview-card">
+              <div class="preview-toolbar">
+                <div class="seg" role="tablist" aria-label="Preview">
+                  <button type="button" role="tab" id="view-parsed" aria-selected="true">Parsed view</button>
+                  <button type="button" role="tab" id="view-original" aria-selected="false" disabled
+                          title="Available for a PDF chosen in this browser">Original file</button>
+                </div>
+                <span class="mono muted" id="preview-version"></span>
               </div>
 
-              <div class="loader" id="upload-loader" role="status" hidden>
-                <svg class="loader-hawk" aria-hidden="true"><use href="#hawk"></use></svg>
-                <p><b>Reading your map…</b></p>
-                <p class="note">Reading your resume can take a few seconds.</p>
+              <article class="paper" id="paper" aria-label="Resume as we read it">
+                <div id="paper-content" hidden>
+                  <p class="paper-tag">Resume</p>
+                  <h2 id="paper-name"></h2>
+                  <p class="paper-contact" id="paper-contact"></p>
+                  <div id="paper-skills-block"><h3>Skills</h3><p id="paper-skills"></p></div>
+                  <div id="paper-experience-block"><h3>Experience</h3><ul id="paper-experience"></ul></div>
+                  <div id="paper-education-block"><h3>Education</h3><ul id="paper-education"></ul></div>
+                </div>
+                <p class="paper-empty" id="paper-empty">Your resume appears here once it is uploaded.</p>
+              </article>
+              <iframe id="original-frame" class="original-frame" title="Original resume file" hidden></iframe>
+            </div>
+
+            <div class="card file-card" id="dropzone">
+              <div class="file-icon"><i data-icon="file"></i></div>
+              <div>
+                <p class="file-name" id="file-name">Upload a resume</p>
+                <p class="file-detail mono muted" id="file-detail">PDF or DOCX · up to 5 MB</p>
+              </div>
+              <div class="file-actions">
+                <label class="btn btn-secondary" for="resume-file"><i data-icon="plus"></i>Choose file</label>
+                <button class="btn btn-primary" id="upload-submit" type="button" disabled>Upload &amp; analyse</button>
+              </div>
+              <input id="resume-file" class="sr-only" type="file"
+                     accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+              <p class="drop-hint">Or drop a file on this card. Each upload is kept as a new version.</p>
+              <div class="progress-line" id="upload-loader" hidden></div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="result-title">
+            <div class="card-head">
+              <h2 id="result-title">Parsing result</h2>
+              <div class="card-head-actions">
+                <label class="sr-only" for="version-select">Resume version</label>
+                <select id="version-select" class="select" hidden></select>
               </div>
             </div>
 
-            <!-- The profile read from the latest version; filled in on load and after an upload. -->
-            <article id="profile-card" class="panel profile" style="--tilt: 0.4deg" hidden>
-              <div class="row">
-                <span class="chip good" id="profile-version"></span>
-                <span class="note">Read from your resume</span>
-              </div>
-              <header class="profile-head">
-                <h2 id="profile-name"></h2>
-                <p class="note" id="profile-contact"></p>
-              </header>
-
-              <div id="profile-skills-section" hidden>
-                <p class="label">Skills</p>
-                <ul class="stickers" id="profile-skills"></ul>
-              </div>
-
-              <div id="profile-experience-section" hidden>
-                <p class="label">Experience</p>
-                <ul class="timeline" id="profile-experience"></ul>
-              </div>
-
-              <div id="profile-education-section" hidden>
-                <p class="label">Education</p>
-                <ul class="timeline" id="profile-education"></ul>
-              </div>
-
-              <div class="row">
-                <a href="dashboard.html#omens" class="btn primary">See what your map says</a>
-              </div>
-            </article>
-
-            <!-- No resume yet. -->
-            <div id="profile-empty" class="panel empty-state" style="--tilt: 0.4deg" hidden>
-              <svg class="big-page" aria-hidden="true"><use href="#page"></use></svg>
-              <h2>No map yet!</h2>
-              <p>Upload your resume and Kite reads it for you: your skills, your experience and your education.</p>
+            <div class="empty" id="profile-empty">
+              <i data-icon="upload"></i>
+              <h3>No resume yet</h3>
+              <p>Choose a PDF or DOCX on the left. We read it in a few seconds and keep every version.</p>
             </div>
-          </div>
+            <p class="muted" id="profile-loading" hidden>Loading…</p>
 
-          <section class="panel" style="--tilt: -0.3deg" aria-labelledby="history-title">
-            <h2 id="history-title">Past maps</h2>
-            <p id="history-empty" class="note">No resumes uploaded yet. Each upload is kept as a new version.</p>
-            <ol id="history-list" class="history-strip" hidden></ol>
+            <div id="profile-body" hidden>
+              <p class="section-label" style="margin-bottom: 8px">Profile</p>
+              <dl class="kv">
+                <div><dt># Name</dt><dd id="kv-name"></dd></div>
+                <div><dt># Email</dt><dd id="kv-email"></dd></div>
+                <div><dt># Phone</dt><dd id="kv-phone"></dd></div>
+                <div><dt># Version</dt><dd id="kv-version"></dd></div>
+                <div><dt># Uploaded</dt><dd id="kv-uploaded"></dd></div>
+              </dl>
+
+              <div class="block-head"><h3>Skills</h3><span class="badge badge-blue" id="skills-count"></span></div>
+              <ul class="chips" id="profile-skills"></ul>
+              <p class="muted" id="skills-empty" hidden>No skills found. Add a "Skills" section that lists your tools and technologies.</p>
+
+              <div class="block-head"><h3>Experience</h3></div>
+              <ul class="timeline" id="profile-experience"></ul>
+              <p class="muted" id="experience-empty" hidden>No jobs found. Put them under an "Experience" heading.</p>
+
+              <div class="block-head"><h3>Education</h3></div>
+              <ul class="timeline" id="profile-education"></ul>
+              <p class="muted" id="education-empty" hidden>No education found. Put it under an "Education" heading.</p>
+            </div>
           </section>
         </div>
-      </section>
-    </main>
+      </div>
+    </div>
 
-    <footer id="app-gutter" class="gutter"></footer>
-
-    <!-- One version in the history strip. -->
-    <template id="history-template">
-      <li>
-        <b data-field="version"></b>
-        <span class="note" data-field="date"></span>
-      </li>
-    </template>
-
-    <!-- One experience or education line. -->
     <template id="timeline-template">
-      <li><span><b data-field="what"></b><span data-field="where"></span></span><span data-field="when"></span></li>
+      <li><p class="tl-what"><span data-field="what"></span><span class="muted" data-field="where"></span></p><p class="tl-when mono" data-field="when"></p></li>
     </template>
 
     <script type="module" src="js/pages/upload.js"></script>

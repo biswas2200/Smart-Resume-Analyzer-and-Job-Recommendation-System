@@ -1,5 +1,5 @@
-// Small per-browser memories that only add polish: quiet mode, which roles a reader has
-// already seen, the last ATS score. Losing one costs nothing, so every read and write
+// Small per-browser memories that only add polish: which roles a user has already seen and
+// the last ATS score. Losing one costs nothing, so every read and write
 // tolerates a browser that blocks storage instead of breaking the page.
 
 export function readJson(key) {
