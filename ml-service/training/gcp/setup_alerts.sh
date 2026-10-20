@@ -8,7 +8,9 @@
 #   - "Data work: labelling report": emails the report that report_on_finish.sh
 #     writes to Cloud Logging when the run ends;
 #   - "Data work: data-prep VM stopped": emails when the VM shuts down or is stopped,
-#     a backstop in case no report arrives.
+#     a backstop in case no report arrives;
+#   - "Data work: catalogue report": emails the report that catalogue.sh's VM
+#     writes when a role catalogue rebuild ends.
 #
 #   ml-service/training/gcp/setup_alerts.sh you@example.com            # emails a code
 #   ml-service/training/gcp/setup_alerts.sh you@example.com G-123456   # verifies, then the alerts
@@ -101,6 +103,32 @@ create_policy "Data work: data-prep VM stopped" << 'EOF'
     "mimeType": "text/markdown",
     "subject": "[Resume Analyzer] data-prep VM stopped",
     "content": "The data-prep VM has stopped, so it no longer bills for compute (its disk still does, under $1 a month). A labelling report should arrive in its own email; if none does, check gs://__BUCKET__/labelled/DONE and run.log."
+  }
+}
+EOF
+
+create_policy "Data work: catalogue report" << 'EOF'
+{
+  "displayName": "Data work: catalogue report",
+  "combiner": "OR",
+  "conditions": [{
+    "displayName": "catalogue.sh wrote the catalogue report",
+    "conditionMatchedLog": {
+      "filter": "logName=\"projects/__PROJECT__/logs/catalogue-report\"",
+      "labelExtractors": {
+        "headline": "EXTRACT(jsonPayload.headline)",
+        "results": "EXTRACT(jsonPayload.results)",
+        "where": "EXTRACT(jsonPayload.where)",
+        "next": "EXTRACT(jsonPayload.next)"
+      }
+    }
+  }],
+  "alertStrategy": {"notificationRateLimit": {"period": "300s"}, "autoClose": "1800s", "notificationPrompts": ["OPENED"]},
+  "notificationChannels": ["__CHANNEL__"],
+  "documentation": {
+    "mimeType": "text/markdown",
+    "subject": "[Resume Analyzer] Role catalogue rebuild ${log.extracted_label.headline}",
+    "content": "**Role catalogue rebuild ${log.extracted_label.headline}**\n\n- **Results** (new build vs the app's current catalogue): ${log.extracted_label.results}\n- **Files:** ${log.extracted_label.where} (compare.md per input, run.log)\n- **Next:** ${log.extracted_label.next}"
   }
 }
 EOF

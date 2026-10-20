@@ -244,37 +244,112 @@ training/gcp/preflight.sh after
 gcloud compute instances delete data-prep-vm --zone=$ZONE   # when finished
 ```
 
-## 7. Later: clean the job postings in BigQuery
+## 7. Clean the job postings in BigQuery
 
-For the next rebuild of the role catalogue. Loading reads from the bucket
-inside Google's network, so it is fast even from the laptop.
+Done 2026-10-10 for the 1.3M LinkedIn set (`archive (4)`). Everything runs in
+BigQuery in `resume_data` (asia-south1), reading straight from the bucket:
 
 ```bash
-bq mk --dataset --location=$REGION $PROJECT:resume_data
-bq load --source_format=CSV --autodetect --allow_quoted_newlines --skip_leading_rows=1 \
-  --max_bad_records=1000 resume_data.linkedin_postings_raw \
-  "$BUCKET/raw/archive (4)/linkedin_job_postings.csv"
+training/gcp/bigquery.sh load      # CSVs -> raw_* tables, all STRING; expire after 30 days
+training/gcp/bigquery.sh profile   # counts, duplicates, blanks (bigquery/profile.sql)
+training/gcp/bigquery.sh clean     # bigquery/clean.sql -> linkedin_postings, linkedin_posting_skills
+training/gcp/bigquery.sh check     # invariants on the cleaned tables (all must be 0)
+training/gcp/bigquery.sh export    # Parquet -> $BUCKET/cleaned/linkedin/
 ```
 
-Then clean with SQL, for example deduplicating on the job link:
+| | Rows |
+|---|---|
+| Raw postings | 1,348,454 |
+| Search-results pages dropped (link has no job id) | 664 |
+| Reposts collapsed (same title + company + description) | 271,518 |
+| **`linkedin_postings`** (typed, tidied, skills array, cleaned description, `copies`) | **1,076,272** |
+| with skills / with a description | 1,025,322 / 1,027,663 |
+| **`linkedin_posting_skills`** (one row per posting and skill) | **21,178,274** |
 
-```sql
-CREATE OR REPLACE TABLE resume_data.linkedin_postings AS
-SELECT * EXCEPT(rn) FROM (
-  SELECT *, ROW_NUMBER() OVER (PARTITION BY job_link ORDER BY last_processed_time DESC) AS rn
-  FROM resume_data.linkedin_postings_raw
-  WHERE job_title IS NOT NULL
-) WHERE rn = 1;
+Reposts matter for the catalogue: the largest group is one Dollar General
+posting listed 4,571 times. `copies` keeps the count in case a weighting
+wants it. The SQL is structural only (types, whitespace, HTML, duplicates);
+which titles and skills count is still decided by
+`scripts/build_general_catalogue.py`.
+
+Cost: each run scans about 7 GB; the first 1 TiB of queries a month is
+free. Storage: the raw tables expire after 30 days so the dataset stays inside
+the free 10 GB; `load` recreates them from the bucket in about 2 minutes.
+
+### Rebuild the role catalogue from the cleaned postings
+
+```bash
+training/gcp/bigquery.sh catalogue   # titles + skills -> $BUCKET/cleaned/linkedin_catalogue_input/ (~140 MB)
+training/gcp/catalogue.sh            # build on a temporary VM, compare, delete the VM
 ```
 
-Check the real column names with `bq show --schema resume_data.linkedin_postings_raw`
-before writing queries. The first 1 TiB of queries each month is free; this
-data is a few GB.
+`bigquery.sh catalogue` exports only the two columns the script reads, for the
+postings that have skills (scans about 0.46 GB). `catalogue.sh` creates an
+e2-standard-2 VM in the bucket's region, runs
+`scripts/build_general_catalogue.py` and `scripts/compare_catalogues.py` on
+it, deletes it, and copies the new JSON files, `compare.md` and the build log
+to `ml-service/build/catalogue/<run>/`. Nothing in `app/data` changes until a
+person has read `compare.md` and copied the files in; a catalogue change also
+bumps `engine_version`. Cloud Shell is not used because it runs in another
+region and reads this bucket at about 0.2 MB/s.
 
-## 8. Later: GPU training
+## 8. GPU training
 
-Training needs an NVIDIA T4 GPU. Free-trial accounts cannot attach GPUs, so
-upgrade the billing account first (the remaining credit carries over), then
-request GPU quota (`GPUS_ALL_REGIONS` and T4 in `asia-south1`) in the console
-under IAM & Admin → Quotas. Approval can take a day. The VM setup is in
-[README.md](README.md) §2.
+Measured 2026-10-09; the run order and its gates are in [README.md](README.md),
+"Track A run order".
+
+### Quota
+
+Two quotas must both allow a GPU: the project-wide `GPUS_ALL_REGIONS` (0 on a
+new project; raise it to 1 under IAM & Admin → Quotas, approved within the
+day) and the per-region T4 or L4 quota (already 1 in every region checked).
+Free-trial billing accounts cannot use GPUs at all.
+
+### Finding a GPU
+
+GPUs run out per zone ("ZONE_RESOURCE_POOL_EXHAUSTED" or "STOCKOUT"). On
+2026-10-09 every T4 and L4 in asia-south1 was out, and so were T4s in
+asia-southeast1; an L4 in asia-southeast1-b was free. Try zones in turn and
+take the first that works: a failed attempt costs nothing. Training data is
+about 50 MB, so a VM in another region than the bucket costs well under a
+cent in transfer. An L4 (g2-standard-4, 24 GB) is 2 to 3 times faster than a
+T4, so its cost per run is similar.
+
+```bash
+for Z in asia-south1-a asia-south1-b asia-south1-c asia-southeast1-a asia-southeast1-b asia-southeast1-c; do
+  gcloud compute instances create train-gpu-vm --zone=$Z --machine-type=g2-standard-4 \
+    --maintenance-policy=TERMINATE \
+    --image-family=pytorch-2-9-cu129-ubuntu-2404-nvidia-580 --image-project=deeplearning-platform-release \
+    --boot-disk-size=100GB --service-account=$SA --scopes=cloud-platform \
+    --metadata=enable-oslogin=TRUE,install-nvidia-driver=True && break
+done
+```
+
+(For a T4: `--machine-type=n1-standard-4 --accelerator=type=nvidia-tesla-t4,count=1`.)
+The image has the NVIDIA driver, CUDA and PyTorch; give it a minute or two
+after creation before SSH answers.
+
+### Environment
+
+The image lacks Python's venv module. Build the venv on top of the image's
+PyTorch, with the laptop's library versions:
+
+```bash
+VM=train-gpu-vm ZONE=<zone> training/gcp/push_code.sh       # from ml-service/, committed code only
+# on the VM:
+sudo apt-get install -y python3.12-venv
+python3 -m venv --system-site-packages ~/venv
+~/venv/bin/pip install -r ~/ml-service/requirements.txt transformers==4.57.6 tokenizers==0.22.2 \
+  google-genai==1.75.0 pydantic-settings==2.15.0 numpy==1.26.4
+```
+
+Start long jobs detached (`nohup setsid ... &`) and poll a marker file: an SSH
+session can drop or hang.
+
+### Measured cost
+
+L4 in Singapore, estimated at $0.90 an hour: 0.27 s per training step, 498
+steps an epoch for 2,431 resumes, so the 5-epoch teacher fine-tune takes about
+11 minutes (about $0.17). The whole Track A plan, three label-quality rounds
+included, about 2 hours and $2 to $2.50. A running GPU VM bills even when
+idle, so stop or delete it as soon as a step ends.
