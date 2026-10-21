@@ -68,6 +68,21 @@ app:
     # Every analysis then runs at the Premium tier, which the ML service's
     # LLM_DAILY_BUDGET_USD brake never limits (about $0.00035 per AI analysis).
     preview-mode: ${PREVIEW_MODE:true}
+  jobs:
+    # Job recommendations, step 1: Bengaluru companies' public job feeds
+    # (Lever, Greenhouse, Ashby). See backend/README.md "Jobs".
+    city: Bengaluru
+    city-names: [bengaluru, bangalore]
+    country-names: [india]
+    # Sent to every feed and to Wikidata. Wikidata asks bots to name a contact:
+    # set JOBS_USER_AGENT to include one before running this in production.
+    user-agent: ${JOBS_USER_AGENT:Coverlay/0.6 (student project; job feed reader)}
+    request-delay: ${JOBS_REQUEST_DELAY:150ms}
+    # Between page reads on a website (the startup map's company pages).
+    page-delay: ${JOBS_PAGE_DELAY:1s}
+    timeout: 15s
+    # Daily refresh, India time (Spring cron: s m h dom mon dow); "-" turns it off.
+    refresh-cron: ${JOBS_REFRESH_CRON:0 30 6 * * *}
   admin:
     # Bootstrap administrators: accounts with these emails (comma-separated)
     # become ADMIN when they register or log in, so the first admin never

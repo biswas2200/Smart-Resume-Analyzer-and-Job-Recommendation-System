@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.logging_setup import configure_logging, request_id_from, request_id_var
 from app.models.schemas import HealthResponse
 from app.routers.analyze import router as analyze_router
+from app.routers.jobs import router as jobs_router
 from app.routers.llm_usage import router as llm_usage_router
 from app.routers.upload import router as upload_router
 from app.services.fingerprint import engine_fingerprint
@@ -70,6 +71,7 @@ def _ms_since(start: float) -> float:
 
 
 app.include_router(analyze_router)
+app.include_router(jobs_router)
 app.include_router(upload_router)
 app.include_router(llm_usage_router)
 

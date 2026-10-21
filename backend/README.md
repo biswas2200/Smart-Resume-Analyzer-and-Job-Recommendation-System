@@ -15,6 +15,7 @@ recommendations and feedback.
 | `recommendation` | `GET /recommendations/dashboard` | Composite read view assembled from the latest resume's persisted analysis: detected domain, ATS score, roles (or a lock with `lockReason`), explanation, the user's tier |
 | `feedback` | `POST /feedback`, `GET /feedback/{recommendationId}` | Helpful/not-helpful verdicts (FR-10.1); triggers the skill-vector recompute once enough feedback accumulates |
 | `skillvector` | `GET /roles/{roleId}/skill-vectors`, `POST /roles/{roleId}/skill-vectors/recompute` (ADMIN only) | Versioned, EMA-weighted skill store (FR-7.1-7.4) |
+| `job` | `GET /jobs`, `GET /jobs/recommended`, `GET /jobs/saved`, `PUT`/`DELETE /jobs/{id}/saved`; `POST /admin/jobs/discover`, `/import-startup-map`, `/detect`, `/refresh`, `GET /admin/jobs/status`, `GET`/`POST /admin/jobs/companies` (ADMIN only) | Bengaluru companies, their open jobs (read from each company's public hiring-tool feed), jobs ranked for your resume, saved jobs. See [Jobs](#jobs) |
 | `client` | — | Typed HTTP client wrapping the ML service |
 
 ## Running locally
@@ -54,6 +55,24 @@ Key environment variables (see `src/main/resources/application.yml` for every de
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origin(s) the frontend is served from |
 | `APP_ADMIN_EMAILS` | *(empty)* | Comma-separated emails promoted to ADMIN on register/login — the bootstrap for the first administrator |
 | `PREVIEW_MODE` | `true` | 0.x preview: every account gets Premium and the UI shows a "Preview" banner. Set `false` to bring back Free/Premium (roles are never changed) |
+
+## Jobs
+
+Job recommendations, step 1: which companies we follow and their open jobs in Bengaluru.
+
+- **Companies.** `POST /admin/jobs/discover` adds every company Wikidata lists with its head office in Bengaluru and a website (322 on 22 Oct 2026; newspapers, parties and charities are left out), then looks for each one's job feed. `POST /admin/jobs/companies` adds one company by hand (`name`, `website`, optional `careersUrl`); the watchlist will use the same path. Companies are keyed by website domain, so the same company is never added twice.
+- **Finding a feed** (`AtsDetector`). Only the hiring tools' own public feeds are asked, never a company's website: a careers link that already points at Lever, Greenhouse or Ashby is read directly; otherwise each tool is asked for a board named after the website (`groww.in` → `groww`), then after the company name. A guessed board (website or name) must have at least one job in India, or it is taken to be another company's board: the first run matched "The Better India" to Lever's `better` and via.com to Greenhouse's `via`. `detected_by` records how each feed was found. First run (22 Oct 2026): 322 companies, 6 with a feed (BarRaiser, CRED, Groww, InMobi, Meesho, Sarvam AI), 150 open Bengaluru jobs.
+- **Jobs.** Each feed is read whole and only postings whose location names Bengaluru or Bangalore are stored. A posting that leaves the feed is kept with `active = false`. `POST /admin/jobs/refresh` re-reads every feed; it also runs daily at 06:30 India time (`JOBS_REFRESH_CRON`, `-` to turn off). On Cloud Run, where an idle instance may be stopped, a Cloud Scheduler call to the refresh endpoint is the reliable trigger.
+- **Bangalore Startup Map.** `POST /admin/jobs/import-startup-map` reads the map's public sitemap and each company page's schema.org data (name, website) and its Apply links, one page a second (`JOBS_PAGE_DELAY`). Its `/api/` is never called: its robots.txt asks crawlers to keep out. An Apply link on Lever, Greenhouse or Ashby is read at once; another tool (Workday, Keka) is recorded in `careers_url` as not supported yet. Permission to use the list was requested on 22 Oct 2026; the app credits the map.
+- **Skills and ranking.** After every task, the ML service's `POST /extract-job-skills` fills in each new or changed posting's `skills` once. `GET /jobs/recommended?q=&workplace=&limit=` sends the latest resume's skills and its top 3 role matches, with every open job's stored skills, to `POST /rank-jobs`: score = 0.45 × skills covered + 0.30 × meaning similarity + 0.25 × title-to-role fit (0.5 × title fit when a job's skills can't be read), each job with its matched and missing skills and a one-line reason. Without a resume, jobs come newest first.
+- **Saved jobs.** `PUT /jobs/{id}/saved` saves a job or sets its status (SAVED, APPLIED, INTERVIEW, OFFER, REJECTED); `DELETE` removes it; `GET /jobs/saved` lists them, a closed job marked `active: false`.
+- **Politeness.** One task at a time, a pause between requests (`JOBS_REQUEST_DELAY`, 150 ms), and a `User-Agent` naming the app (`JOBS_USER_AGENT`; add a contact before running in production, as Wikidata asks).
+
+| Feed | Endpoint |
+|---|---|
+| Lever | `api.lever.co/v0/postings/{slug}?mode=json` |
+| Greenhouse | `boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true` |
+| Ashby | `api.ashbyhq.com/posting-api/job-board/{slug}` |
 
 ## Logging
 
