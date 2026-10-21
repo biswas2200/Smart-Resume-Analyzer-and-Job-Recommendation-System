@@ -185,7 +185,7 @@ export const BRAND_SVG =
   '<path d="M18.2 7.5v4.3h4.3z" fill="#c7d2fe"/>' +
   '<path d="M13 15.5h6.5M13 19h4.5" stroke="#3b5bdb" stroke-width="1.7" stroke-linecap="round"/></svg>';
 
-/** The "free during the preview" strip above the page header (once per page). */
+/** The "Preview" strip above the page header (once per page). */
 function showPreviewBanner() {
   const main = document.querySelector('.main');
   if (!main || main.querySelector('.preview-banner')) {

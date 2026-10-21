@@ -95,4 +95,4 @@ export function tierLabel(role, previewMode = false) {
   return role === 'USER' && !previewMode ? 'Free' : 'Premium';
 }
 
-export const PREVIEW_MESSAGE = 'Everything is free during the preview: every account gets Premium.';
+export const PREVIEW_MESSAGE = 'Preview';

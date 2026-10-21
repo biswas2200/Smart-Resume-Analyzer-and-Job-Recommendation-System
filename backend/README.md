@@ -53,7 +53,7 @@ Key environment variables (see `src/main/resources/application.yml` for every de
 | `OBJECT_STORAGE_BUCKET` | `resumes` | Bucket resume files are stored in (created on startup if missing) |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origin(s) the frontend is served from |
 | `APP_ADMIN_EMAILS` | *(empty)* | Comma-separated emails promoted to ADMIN on register/login — the bootstrap for the first administrator |
-| `PREVIEW_MODE` | `true` | 0.x preview: every account gets Premium and the UI shows a "free during the preview" banner. Set `false` to bring back Free/Premium (roles are never changed) |
+| `PREVIEW_MODE` | `true` | 0.x preview: every account gets Premium and the UI shows a "Preview" banner. Set `false` to bring back Free/Premium (roles are never changed) |
 
 ## Logging
 
