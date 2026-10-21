@@ -1,7 +1,10 @@
 # Publishing our NER model on Hugging Face
 
-Plan agreed in principle on 2026-10-10, parked until later. Nothing has been
-uploaded yet.
+Plan agreed in principle on 2026-10-10. **Published 2026-10-22** (public):
+[`biswas2200/resume-ner-bert-careeros`](https://huggingface.co/biswas2200/resume-ner-bert-careeros) (teacher) and
+[`biswas2200/resume-ner-distilbert-careeros`](https://huggingface.co/biswas2200/resume-ner-distilbert-careeros) (student),
+weights byte-identical to `models/ner/`. Steps 1 to 3 are done; steps 4 and 5
+(load the app from the Hugging Face id, re-run the evaluation) are still open.
 
 ## What we would publish
 
