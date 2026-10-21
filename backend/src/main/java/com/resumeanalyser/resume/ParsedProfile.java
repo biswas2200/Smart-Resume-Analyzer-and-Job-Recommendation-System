@@ -71,9 +71,54 @@ public class ParsedProfile {
     @Column(name = "ats_checks", nullable = false)
     private List<AtsCheckEntry> atsChecks;
 
-    /** LLM-generated coaching explanation of the ATS score, role matches, and skill gaps. */
+    /** Coaching explanation of the ATS score, role matches, and skill gaps. */
     @Column(nullable = false, columnDefinition = "TEXT")
     private String explanation = "";
+
+    /**
+     * Which explainer backend produced {@link #explanation}: {@code
+     * "template"} (deterministic) or {@code "llm"} (Premium narrative, or a
+     * fallback to template if the LLM call failed -- FR-5.4/NFR-3.1).
+     */
+    @Column(name = "explanation_source", nullable = false)
+    private String explanationSource = "template";
+
+    /**
+     * Stable id of the job domain the resume was classified into (an entry of
+     * {@code ml-service/app/data/domains.json}), e.g. {@code "engineering"}.
+     * Detected deterministically for every upload, free or premium.
+     */
+    @Column(nullable = false, length = 64)
+    private String domain = "engineering";
+
+    /** Display name of {@link #domain}, e.g. {@code "Healthcare & Life Sciences"}. */
+    @Column(name = "domain_name", nullable = false)
+    private String domainName = "";
+
+    /** The classifier's confidence in {@link #domain}: 0.5 (coin flip) to 1.0. */
+    @Column(name = "domain_confidence", nullable = false)
+    private double domainConfidence;
+
+    /** Which engine serves {@link #domain}: {@code "local"} (offline) or {@code "llm"} (Gemini via ADC). */
+    @Column(name = "domain_engine", nullable = false, length = 16)
+    private String domainEngine = "local";
+
+    /** Which tier {@link #domain}'s recommendations require: {@code "free"} or {@code "premium"}. */
+    @Column(name = "domain_tier", nullable = false, length = 16)
+    private String domainTier = "free";
+
+    /**
+     * True when this analysis ran at the free tier for a Premium-only domain:
+     * no {@link com.resumeanalyser.recommendation.Recommendation} rows exist
+     * for the resume by design, and {@link #lockReason} says why. Cleared by
+     * re-analysing after an upgrade ({@code POST /resumes/{id}/reanalyze}).
+     */
+    @Column(name = "recommendations_locked", nullable = false)
+    private boolean recommendationsLocked;
+
+    /** Machine-readable reason for {@link #recommendationsLocked}, e.g. {@code "premium_domain"}; null when unlocked. */
+    @Column(name = "lock_reason", length = 64)
+    private String lockReason;
 
     /**
      * One entry in a candidate's work history.

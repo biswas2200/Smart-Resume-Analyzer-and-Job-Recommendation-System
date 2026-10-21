@@ -1,11 +1,14 @@
 package com.resumeanalyser.auth;
 
+import com.resumeanalyser.account.AiAllowanceService;
 import com.resumeanalyser.account.User;
 import com.resumeanalyser.account.UserRepository;
+import com.resumeanalyser.account.UserRole;
 import com.resumeanalyser.account.dto.UserDto;
 import com.resumeanalyser.auth.dto.AuthResponse;
 import com.resumeanalyser.auth.dto.LoginRequest;
 import com.resumeanalyser.auth.dto.RegisterRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -14,6 +17,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * Business logic behind the two public auth endpoints: creating a new account
@@ -28,19 +33,28 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final AiAllowanceService aiAllowanceService;
+    private final List<String> adminEmails;
 
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
             JwtService jwtService,
-            UserDetailsService userDetailsService
+            UserDetailsService userDetailsService,
+            AiAllowanceService aiAllowanceService,
+            @Value("${app.admin.emails:}") List<String> adminEmails
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.aiAllowanceService = aiAllowanceService;
+        this.adminEmails = adminEmails.stream()
+                .map(e -> e.trim().toLowerCase(Locale.ROOT))
+                .filter(e -> !e.isEmpty())
+                .toList();
     }
 
     /**
@@ -60,9 +74,34 @@ public class AuthService {
         User user = new User();
         user.setEmail(request.email());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user = userRepository.save(user);
+        user = userRepository.save(promoteIfBootstrapAdmin(user));
 
         return issueToken(user);
+    }
+
+    /**
+     * The signed-in account, as the client should see it -- read fresh from
+     * the database (not from the token) so a role change made by an admin is
+     * visible on the very next request.
+     */
+    public UserDto me(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user vanished: " + email));
+        return toDto(user);
+    }
+
+    /**
+     * Bootstrap for the first administrator: an account whose email is listed
+     * in {@code app.admin.emails} ({@code APP_ADMIN_EMAILS}) becomes ADMIN on
+     * register and on login, so no manual database edit is ever needed to
+     * get an admin who can then promote others via {@code /admin/users}.
+     */
+    User promoteIfBootstrapAdmin(User user) {
+        if (user.getRole() != UserRole.ADMIN
+                && adminEmails.contains(user.getEmail().trim().toLowerCase(Locale.ROOT))) {
+            user.setRole(UserRole.ADMIN);
+        }
+        return user;
     }
 
     /**
@@ -79,6 +118,10 @@ public class AuthService {
         UserDetails principal = (UserDetails) authentication.getPrincipal();
         User user = userRepository.findByEmail(principal.getUsername())
                 .orElseThrow(() -> new IllegalStateException("Authenticated user vanished: " + principal.getUsername()));
+        User promoted = promoteIfBootstrapAdmin(user);
+        if (promoted.getRole() != user.getRole()) {
+            user = userRepository.save(promoted);
+        }
 
         return issueToken(user);
     }
@@ -99,8 +142,17 @@ public class AuthService {
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
 
         String token = jwtService.generateToken(userDetails);
-        UserDto userDto = new UserDto(user.getId(), user.getEmail(), user.getRole(), user.getCreatedAt());
 
-        return AuthResponse.bearer(token, jwtService.extractExpiration(token), userDto);
+        return AuthResponse.bearer(token, jwtService.extractExpiration(token), toDto(user));
+    }
+
+    /**
+     * The client's view of an account, including this month's AI allowance
+     * for a free account (null for Premium/admin) so the UI can show
+     * "AI analyses: 1 of 3 used" without a second request.
+     */
+    UserDto toDto(User user) {
+        return new UserDto(user.getId(), user.getEmail(), user.getRole(), user.getCreatedAt(),
+                aiAllowanceService.status(user));
     }
 }

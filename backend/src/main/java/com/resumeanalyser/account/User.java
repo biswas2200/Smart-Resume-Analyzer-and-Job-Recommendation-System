@@ -42,4 +42,16 @@ public class User {
     /** When this account was created. Set once and never changed afterward. */
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
+
+    /**
+     * The calendar month ({@code "YYYY-MM"}, UTC) that {@link #aiAnalysesUsed}
+     * counts; empty until the account first spends an AI analysis. See
+     * {@link AiAllowanceService}.
+     */
+    @Column(name = "ai_period", nullable = false, length = 7)
+    private String aiPeriod = "";
+
+    /** Free-tier AI extractions spent in {@link #aiPeriod}. Premium never increments it. */
+    @Column(name = "ai_analyses_used", nullable = false)
+    private int aiAnalysesUsed = 0;
 }

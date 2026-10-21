@@ -1,6 +1,8 @@
 package com.resumeanalyser.auth;
 
 import com.resumeanalyser.common.ApiError;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -12,8 +14,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * Scoped to only this package ({@code basePackages}), so it never intercepts
  * exceptions from other modules -- those fall through to
  * {@link com.resumeanalyser.common.GlobalExceptionHandler} instead.
+ * {@code @Order(HIGHEST_PRECEDENCE)} makes sure this always wins over that
+ * unscoped catch-all -- without it, Spring breaks ties between equally
+ * unordered {@code @RestControllerAdvice} beans by class name, so whether a
+ * module's own handler actually fires depends on whether its class name
+ * happens to sort before "GlobalExceptionHandler" alphabetically. That's how
+ * this one worked by accident while {@code ResumeExceptionHandler} didn't.
  */
 @RestControllerAdvice(basePackages = "com.resumeanalyser.auth")
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class AuthExceptionHandler {
 
     /**

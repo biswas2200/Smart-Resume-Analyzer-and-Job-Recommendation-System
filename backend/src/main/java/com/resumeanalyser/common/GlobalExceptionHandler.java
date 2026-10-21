@@ -1,9 +1,12 @@
 package com.resumeanalyser.common;
 
+import com.resumeanalyser.common.logging.RequestIdFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -47,6 +50,18 @@ public class GlobalExceptionHandler {
      * @param e the exception, whose message describes what wasn't found
      * @return a 404 Not Found response
      */
+    /**
+     * Handles a request body that couldn't be read at all -- malformed JSON,
+     * or a value that isn't one of an enum's constants (e.g. an unknown role
+     * name sent to {@code PATCH /admin/users/{id}/role}). That is the caller's
+     * mistake, so it's a 400 like a validation failure, not a 500.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableBody(HttpMessageNotReadableException e) {
+        return ResponseEntity.badRequest()
+                .body(ApiError.of(HttpStatus.BAD_REQUEST.value(), "Request body is malformed or has an invalid value"));
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -86,7 +101,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(Exception e) {
-        String traceId = UUID.randomUUID().toString();
+        // The request id doubles as the trace id, so the one id a user quotes
+        // finds every log line for their request, not just this one.
+        String requestId = MDC.get(RequestIdFilter.MDC_KEY);
+        String traceId = requestId != null ? requestId : UUID.randomUUID().toString();
         log.error("Unhandled exception, traceId={}", traceId, e);
 
         return ResponseEntity.internalServerError()

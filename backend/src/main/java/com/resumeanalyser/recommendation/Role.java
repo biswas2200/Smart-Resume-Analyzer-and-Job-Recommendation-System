@@ -27,7 +27,20 @@ public class Role {
     @Column(nullable = false, unique = true)
     private String title;
 
-    /** Free-text description of the role, shown on dashboards. Empty until an admin fills it in. */
+    /**
+     * Free-text description of the role, shown on dashboards. Filled from the
+     * ML catalogue's one-liner the first time the role is matched; an admin
+     * can overwrite it later.
+     */
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description = "";
+
+    /**
+     * Which job domain's catalogue this role comes from (an id from
+     * {@code ml-service/app/data/domains.json}), e.g. {@code "engineering"}
+     * or {@code "healthcare"}. Lets the dashboard group roles and the
+     * skill-vector snapshot stay per-domain.
+     */
+    @Column(nullable = false, length = 64)
+    private String domain = "engineering";
 }

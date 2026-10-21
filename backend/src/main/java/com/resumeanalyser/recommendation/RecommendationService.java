@@ -1,6 +1,8 @@
 package com.resumeanalyser.recommendation;
 
+import com.resumeanalyser.account.AiAllowanceService;
 import com.resumeanalyser.account.User;
+import com.resumeanalyser.account.UserRole;
 import com.resumeanalyser.client.dto.RoleMatchDto;
 import com.resumeanalyser.common.ResourceNotFoundException;
 import com.resumeanalyser.recommendation.dto.DashboardResponse;
@@ -10,6 +12,7 @@ import com.resumeanalyser.resume.Resume;
 import com.resumeanalyser.resume.ResumeRepository;
 import com.resumeanalyser.skillvector.SkillVectorService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -29,19 +32,22 @@ public class RecommendationService {
     private final ResumeRepository resumeRepository;
     private final ParsedProfileRepository parsedProfileRepository;
     private final SkillVectorService skillVectorService;
+    private final AiAllowanceService aiAllowanceService;
 
     public RecommendationService(
             RoleRepository roleRepository,
             RecommendationRepository recommendationRepository,
             ResumeRepository resumeRepository,
             ParsedProfileRepository parsedProfileRepository,
-            SkillVectorService skillVectorService
+            SkillVectorService skillVectorService,
+            AiAllowanceService aiAllowanceService
     ) {
         this.roleRepository = roleRepository;
         this.recommendationRepository = recommendationRepository;
         this.resumeRepository = resumeRepository;
         this.parsedProfileRepository = parsedProfileRepository;
         this.skillVectorService = skillVectorService;
+        this.aiAllowanceService = aiAllowanceService;
     }
 
     /**
@@ -65,8 +71,16 @@ public class RecommendationService {
                     .orElseGet(() -> {
                         Role newRole = new Role();
                         newRole.setTitle(match.role());
+                        newRole.setDomain(domainOf(match));
+                        newRole.setDescription(match.description() == null ? "" : match.description());
                         return roleRepository.save(newRole);
                     });
+            if (role.getDescription().isBlank() && match.description() != null && !match.description().isBlank()) {
+                // Roles created before the catalogue carried descriptions get
+                // one the next time they are matched.
+                role.setDescription(match.description());
+                roleRepository.save(role);
+            }
 
             Recommendation recommendation = new Recommendation();
             recommendation.setUser(user);
@@ -84,11 +98,31 @@ public class RecommendationService {
     }
 
     /**
+     * Replaces one resume version's recommendations with a fresh analysis run's
+     * (see {@code ResumeService#reanalyze}): the old rows -- and, through the
+     * schema's cascade, any feedback on them -- are removed first, so the
+     * dashboard never shows two generations of matches for the same resume.
+     */
+    @Transactional
+    public void replaceForResume(User user, Resume resume, List<RoleMatchDto> matches) {
+        recommendationRepository.deleteByResume(resume);
+        persistFromAnalysis(user, resume, matches);
+    }
+
+    private static String domainOf(RoleMatchDto match) {
+        return match.domain() == null || match.domain().isBlank() ? "engineering" : match.domain();
+    }
+
+    /**
      * Assembles the dashboard view for a user's most recently uploaded resume.
      *
      * @param user the signed-in account
      * @return the dashboard data, or empty if the user hasn't uploaded a resume yet
      */
+    // Read-only transaction so the lazy Recommendation -> Role association can
+    // be walked while assembling the view; open-in-view is off, so without it
+    // r.getRole().getTitle() throws LazyInitializationException.
+    @Transactional(readOnly = true)
     public Optional<DashboardResponse> getDashboard(User user) {
         Optional<Resume> latestResume = resumeRepository.findTopByUserOrderByVersionDesc(user);
         if (latestResume.isEmpty()) {
@@ -112,13 +146,31 @@ public class RecommendationService {
                 .map(r -> new DashboardResponse.RoleRecommendation(
                         r.getId(),
                         new DashboardResponse.RoleSummary(
-                                r.getRole().getId(), r.getRole().getTitle(), r.getRole().getDescription()),
+                                r.getRole().getId(), r.getRole().getTitle(), r.getRole().getDescription(),
+                                r.getRole().getDomain()),
                         r.getMatchScore(),
                         r.getCreatedAt(),
                         r.getMatchedSkills(),
                         r.getMissingSkills()))
                 .toList();
 
-        return Optional.of(new DashboardResponse(atsScore, roleRecommendations, profile.getExplanation()));
+        DashboardResponse.DomainInfo domain = new DashboardResponse.DomainInfo(
+                profile.getDomain(),
+                profile.getDomainName(),
+                profile.getDomainConfidence(),
+                profile.getDomainEngine(),
+                profile.getDomainTier());
+
+        return Optional.of(new DashboardResponse(
+                resume.getId(),
+                domain,
+                atsScore,
+                roleRecommendations,
+                profile.isRecommendationsLocked(),
+                profile.getLockReason(),
+                user.getRole() == UserRole.USER ? "free" : "premium",
+                aiAllowanceService.status(user),
+                profile.getExplanation(),
+                profile.getExplanationSource()));
     }
 }

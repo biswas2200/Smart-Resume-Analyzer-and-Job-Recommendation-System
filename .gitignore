@@ -44,3 +44,21 @@ build/
 
 # Internal working docs (SRS draft, notes) -- not meant for the public repo
 documents/
+
+# Trained NER models -- fetched from the bucket by
+# ml-service/scripts/fetch_ner_models.sh, too large for git
+ml-service/models/
+
+# Downloaded evaluation/training datasets -- large, not meant for the repo
+datasets/
+
+# Personal manual-download tracking note -- not part of the shipped docs set
+# (not in mkdocs.yml's nav; see docs/datasets.md for the dataset catalogue itself)
+docs/manual-downloads-backlog.md
+
+# Personal supporting notes (not for the repo)
+supporting-docs/
+
+# Personal Claude Code settings and hooks
+.claude/settings.local.json
+.claude/hooks/

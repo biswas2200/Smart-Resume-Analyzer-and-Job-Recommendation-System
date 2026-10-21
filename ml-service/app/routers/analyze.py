@@ -13,13 +13,17 @@ from app.models.schemas import (
     AnalyzeResponse,
     AtsScoreRequest,
     AtsScoreResponse,
+    DomainDetection,
+    JdMatchRequest,
+    JdMatchResponse,
     MatchRequest,
     MatchResponse,
     ParseRequest,
     ParseResponse,
 )
-from app.services import ats_score, gap_analysis, matcher
-from app.services.explainer import explain_results
+from app.services import ats_score, jd_match, matcher, pipeline
+from app.services.domain_classifier import detect_domain
+from app.services.fingerprint import engine_fingerprint
 from app.services.parser import parse_resume
 
 router = APIRouter()
@@ -33,13 +37,29 @@ def parse(request: ParseRequest) -> ParseResponse:
     return ParseResponse(profile=profile)
 
 
+@router.post("/detect-domain")
+def detect(request: ParseRequest) -> DomainDetection:
+    """Which job domain the resume belongs to, and the engine/tier that
+    serves it -- deterministic, no LLM (see domain_classifier.py)."""
+    return detect_domain(request.resume_text)
+
+
 @router.post("/match")
 def match(request: MatchRequest) -> MatchResponse:
-    """Rank roles against an already-known skill list by embedding cosine
-    similarity (see matcher.py) -- for a caller that has skills but not raw
-    resume text, e.g. a profile-edit flow."""
-    matches = matcher.match_roles(request.skills, top_n=request.top_n)
-    return MatchResponse(matches=matches)
+    """Rank one domain's roles against an already-known skill list by
+    embedding cosine similarity (see matcher.py) -- for a caller that has
+    skills but not raw resume text, e.g. a profile-edit flow."""
+    matches = matcher.match_roles(request.skills, top_n=request.top_n, domain=request.domain)
+    return MatchResponse(matches=matches, engine_fingerprint=engine_fingerprint())
+
+
+@router.post("/match-jd")
+def match_jd(request: JdMatchRequest) -> JdMatchResponse:
+    """How well an already-extracted skill set covers one pasted job
+    description: score, matched/missing JD skills and the closest catalogue
+    role (see jd_match.py). Deterministic, no LLM -- the backend exposes it
+    to Premium accounts as POST /resumes/{id}/jd-match."""
+    return jd_match.match_jd(request.skills, request.jd_text, domain=request.domain)
 
 
 @router.post("/ats-score")
@@ -51,19 +71,11 @@ def score(request: AtsScoreRequest) -> AtsScoreResponse:
 
 @router.post("/analyze")
 def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
-    """Full pipeline in one call: parse, ATS-score, match roles, find skill
-    gaps, and generate an explanation -- the text-in counterpart to
-    upload.py's analyze_file(), for a caller that already has resume text."""
-    profile = parse_resume(request.resume_text)
-    ats = ats_score.score_resume(request.resume_text)
-    matches = matcher.match_roles(profile.skills, top_n=request.top_n)
-    gaps = gap_analysis.analyze_gaps(matches)
-    explanation = explain_results(profile, ats, matches, gaps)
-
-    return AnalyzeResponse(
-        profile=profile,
-        ats_score=ats,
-        matches=matches,
-        gaps=gaps,
-        explanation=explanation,
+    """Full pipeline in one call: detect domain, ATS-score, parse, match
+    roles, find skill gaps, and explain -- or lock recommendations when the
+    domain needs the AI engine and this request may not use it (see
+    services/pipeline.py). The text-in counterpart to upload.py's
+    analyze_file()."""
+    return pipeline.analyze_text(
+        request.resume_text, top_n=request.top_n, tier=request.tier, llm_allowed=request.llm_allowed
     )

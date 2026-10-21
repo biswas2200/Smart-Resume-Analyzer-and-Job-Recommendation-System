@@ -1,100 +1,113 @@
-# Data Flow Diagram (DFD)
+# Data flow diagram (DFD)
 
-Standard Gane–Sarson style: rounded rectangles are processes, open-ended rectangles are external entities, parallel lines are data stores. Level 0 gives the system boundary; Level 1 decomposes the one process that matters most — resume analysis — into the actual pipeline stages implemented in `ml-service/`.
+Drawn in Gane and Sarson notation: rounded processes, external entities and parallel-line data stores. Level 0 shows the system boundary. Level 1 breaks down the analysis pipeline and the backend loop. `*` marks processes and stores that are still planned in the [implementation order](editions-and-parity.md#7-implementation-order).
 
-## Level 0 — Context diagram
+## Level 0: context diagram
 
 ```mermaid
 flowchart LR
-    Candidate["Candidate\n(external entity)"]
-    Admin["System Administrator\n(external entity)"]
-    LLM["LLM API — Groq or Gemini\n(external entity)"]
+    Candidate["Candidate\n(Web Free / Premium)"]
+    Admin["System Administrator"]
+    LLM["Google Vertex AI (Gemini 2.5 Flash Lite)\n(Premium narrative / non-eng extraction)"]
 
     SYS(("0\nIntelligent Resume Analyser\nand Career Recommendation System"))
 
-    Candidate -->|resume text, or PDF file / JD text / feedback| SYS
-    SYS -->|parsed profile, match scores,\nskill gaps, ATS score, explanation| Candidate
-    Admin -->|taxonomy updates, role dataset updates| SYS
-    SYS -->|explanation prompt always;\nextraction prompt only if opted in| LLM
-    LLM -->|coaching text; structured JSON\nonly on the opt-in path| SYS
+    Candidate -->|PDF resume, feedback, JD text| SYS
+    SYS -->|profile, matches, gaps, ATS score,\nexplanation, engine_fingerprint| Candidate
+    Admin -->|taxonomy, role dataset,\nrecompute, snapshot export, model release| SYS
+    SYS -.->|explanation prompt (Premium);\nextraction prompt (non-eng)| LLM
+    LLM -.->|narrative; structured JSON| SYS
 ```
 
-## Level 1 — Decomposition of process 0 (the analyze pipeline)
-
-This is the actual data flow inside `POST /analyze`, one bubble per service module.
+## Level 1: the analysis pipeline (process 0, inside the core engine)
 
 ```mermaid
 flowchart TB
-    Candidate["Candidate"]
-    LLM["LLM API — Groq or Gemini"]
+    Caller["Backend Service (Spring Boot)"]
+    LLM["Google Vertex AI (Gemini)"]
 
-    P0(("0.5\nExtract Text from\nUploaded PDF\n(upload.py, document_extraction/)"))
-    P1(("1.0\nParse Resume\n(parser.py -> local_ner_parser.py\nby default; LLM if opted in)"))
+    P0(("0.5\nExtract Text\n(document_extraction/)"))
+    P05(("0.7\nSegment Sections*\n(sectioner.py)"))
+    P1(("1.0\nExtract Entities\n(dictionary_skills.py* +\nlocal_ner_parser.py)"))
     P2(("2.0\nNormalize Skills\n(normalizer.py)"))
-    P3(("3.0\nEmbed & Match Roles\n(matcher.py, embeddings.py)"))
-    P4(("4.0\nScore ATS\nCompatibility\n(ats_score.py)"))
-    P5(("5.0\nAnalyze Skill Gaps\n(gap_analysis.py)"))
-    P6(("6.0\nGenerate Explanation\n(explainer.py)"))
+    P3(("3.0\nMatch Roles\n(matcher.py: vector lookup*,\nweighted mean*, round 2dp*)"))
+    P4(("4.0\nScore ATS\n(ats_score.py)"))
+    P5(("5.0\nAnalyze Gaps\n(gap_analysis.py)"))
+    P6(("6.0\nExplain\n(template* | llm)"))
+    P7(("6.5\nStamp Fingerprint*\n(config.py)"))
 
     D1[("D1: Skill Taxonomy\nskill_taxonomy.json")]
-    D2[("D2: Curated Role Dataset\nrole_skills.json")]
+    D2[("D2: Role Dataset\nrole_skills.json")]
+    D7[("D7: Vector tables*\nskill_vectors.npy, role_vectors.npy")]
+    D8[("D8: Weights snapshot*\nweights_snapshot.json")]
+    D9[("D9: Pinned models\nNER (ONNX*), MiniLM")]
 
-    Candidate -->|PDF file| P0
-    P0 -->|resume_text\n(column-aware reading order)| P1
-    Candidate -->|resume_text| P1
-    Candidate -->|resume_text, target_keywords| P4
-    P1 -.->|extraction prompt, opt-in only| LLM
-    LLM -.->|raw JSON, opt-in only| P1
-    P1 -->|ResumeProfile\n(name, contact, skills[],\nexperience[], education[])| P2
-    P2 <-->|variant -> canonical lookup| D1
-    P2 -->|normalized skills[]| P3
+    Caller -->|PDF| P0
+    P0 -->|resume_text| P05
+    P05 -->|sections| P1
+    P0 -->|resume_text| P4
+    P1 <-->|variants| D1
+    P1 <-->|model| D9
+    P1 -.->|extraction prompt, opt-in| LLM
+    P1 -->|ResumeProfile + skill spans| P2
+    P2 <-->|variant → canonical| D1
+    P2 -->|canonical skills| P3
     P3 <-->|role skill lists| D2
-    P3 -->|RoleMatch[]\n(role, score, matched, missing)| P5
+    P3 <-->|vectors| D7
+    P3 <-->|weights| D8
+    P3 -.->|unknown skills only| D9
+    P3 -->|RoleMatch[]| P5
     P3 -->|RoleMatch[]| P6
-    P4 -->|AtsScoreResponse\n(score, max_score, checks[])| P6
-    P5 -->|GapAnalysis[]\n(role, missing_skills)| P6
+    P4 -->|AtsScoreResponse| P6
+    P5 -->|GapAnalysis[]| P6
     P1 -->|ResumeProfile| P6
-    P6 -->|explanation prompt| LLM
-    LLM -->|coaching text| P6
-    P6 -->|AnalyzeResponse\n(profile, ats_score,\nmatches, gaps, explanation)| Candidate
+    P6 -.->|prompt, explainer=llm| LLM
+    LLM -.->|narrative| P6
+    P6 --> P7
+    P7 -->|AnalyzeResponse\n+ engine_fingerprint| Caller
 ```
 
-## Level 1 — Planned backend data flow (once implemented)
-
-Adds persistence and the temporal feedback loop around the ML-service pipeline above.
+## Level 1: backend loop (implemented; snapshot export planned)
 
 ```mermaid
 flowchart TB
     Candidate["Candidate"]
-    MLPipeline(("0.0\nResume Analysis Pipeline\n(see diagram above)"))
-    P7(("7.0\nPersist Resume Version\n& Recommendations"))
-    P8(("8.0\nCollect Feedback"))
-    P9(("9.0\nUpdate Skill-Vector\nWeights (EMA)"))
+    Admin["Administrator"]
+    MLPipeline(("0.0\nAnalysis pipeline\n(above)"))
+    P8(("7.0\nUpload & Persist\n(resume.ResumeService)"))
+    P9(("8.0\nCollect Feedback\n(feedback.FeedbackService)"))
+    P10(("9.0\nEMA Update\n(skillvector.SkillVectorService)"))
+    P11(("10.0\nExport Snapshot*"))
+    P12(("11.0\nGate by Tier*\n(FeatureFlags)"))
 
-    D3[("D3: Resume & Profile Store\n(PostgreSQL: Resume, ParsedProfile)")]
-    D4[("D4: Recommendation Store\n(PostgreSQL: Recommendation)")]
-    D5[("D5: Versioned Skill-Vector Store\n(PostgreSQL: SkillVector)")]
-    D6[("D6: Feedback Store\n(PostgreSQL: Feedback)")]
+    D3[("D3: resumes, parsed_profiles\n(PostgreSQL) + files (MinIO)")]
+    D4[("D4: recommendations")]
+    D5[("D5: skill_vectors (versioned)")]
+    D6[("D6: feedback")]
+    D8[("D8: weights_snapshot.json\n(ships in next release)")]
 
-    Candidate -->|upload resume| P7
-    P7 -->|resume_text| MLPipeline
-    MLPipeline -->|AnalyzeResponse| P7
-    P7 --> D3
-    P7 --> D4
-    Candidate -->|helpful / not helpful| P8
-    P8 --> D6
-    P8 -->|feedback signal| P9
-    D5 <--> P9
-    P9 -->|new_weight = α·signal + (1-α)·old_weight| D5
+    Candidate -->|PDF| P8
+    P8 --> P12
+    P12 -->|explainer, top_n| MLPipeline
+    MLPipeline -->|AnalyzeResponse| P8
+    P8 --> D3
+    P8 --> D4
+    Candidate -->|helpful / not helpful| P9
+    P9 --> D6
+    P9 -->|threshold reached| P10
+    D5 <--> P10
+    P10 -->|new_weight = α·signal + (1−α)·old| D5
+    Admin --> P11
+    D5 --> P11
+    P11 --> D8
 ```
 
 ## Notes
 
-- Data stores `D1`/`D2` are flat JSON files today (`ml-service/app/data/`); FR-2.3 requires the taxonomy be admin-extensible without a code deployment, which implies these move to `D5`-style DB-backed, versioned stores once the backend exists.
-- `D5` (versioned skill-vector store) is the direct implementation of SRS §3.7 (Temporal Skill-Vector Update Mechanism) — see [Database Schema](database-schema.md) for its column design and [Process Flow](process-flow.md) for the EMA update as a step-by-step sequence.
+- `D1`/`D2` are flat JSON files today. FR-2.3 (admin-editable taxonomy) and the ESCO migration will move them to versioned, DB-backed stores. Either way they are hashed into the engine fingerprint.
+- `D7`, `D8` and `D9` make results reproducible. They ship as constants inside the release artifact and are identical in every edition.
+- `D5` implements SRS §3.7. `D8` is its frozen, per-release export (FR-7.5), which lets the weights learned on the web reach Community users without a network dependency.
 
 ## Related documents
 
-- [Use Case Diagram](use-case-diagram.md)
-- [Process Flow](process-flow.md)
-- [Entity Diagram](entity-diagram.md)
+- [Use Case Diagram](use-case-diagram.md) · [Process Flow](process-flow.md) · [Entity Diagram](entity-diagram.md) · [Editions & Parity](editions-and-parity.md)

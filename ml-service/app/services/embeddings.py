@@ -13,7 +13,10 @@ from app.config import get_settings
 def _get_model():
     from sentence_transformers import SentenceTransformer
 
-    return SentenceTransformer(get_settings().embedding_model)
+    settings = get_settings()
+    # revision= loads exactly the commit engine_fingerprint() hashes
+    # (fingerprint.py), the same way local_ner_parser.py loads the NER model.
+    return SentenceTransformer(settings.embedding_model, revision=settings.embedding_model_revision)
 
 
 def embed(texts: list[str]) -> np.ndarray:

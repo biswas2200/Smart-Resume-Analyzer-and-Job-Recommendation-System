@@ -43,7 +43,7 @@ public class SecurityConfig {
 
     /**
      * Allows the frontend's own origin (a different port during local dev, since
-     * this is a browser SPA calling a separate API) to call this API at all --
+     * this is a browser web client calling a separate API) to call this API at all --
      * without this, the browser's own CORS check would block every request
      * before it ever reaches Spring Security's auth checks below.
      *
@@ -91,7 +91,10 @@ public class SecurityConfig {
      * no CSRF (this is a stateless bearer-token API, not cookie-based, so CSRF doesn't apply),
      * no server-side sessions, registration/login are public, everything else requires
      * a valid JWT (checked by {@link JwtAuthenticationFilter}, which runs before
-     * Spring's own username/password filter).
+     * Spring's own username/password filter). Swagger UI and the raw OpenAPI
+     * document are also public -- otherwise the docs page itself couldn't load
+     * before you'd logged in; individual "try it out" calls against protected
+     * endpoints still need a token pasted into Swagger UI's Authorize button.
      *
      * @param http Spring Security's HTTP configuration builder
      * @return the assembled filter chain
@@ -104,6 +107,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/register", "/auth/login").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        // Belt and braces with the controller's @PreAuthorize: the
+                        // whole admin surface is ADMIN-only at the URL level too.
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

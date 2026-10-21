@@ -17,6 +17,18 @@ spring:
 server:
   port: ${PORT:8080}
 
+logging:
+  # Every line carries the request id (common.logging.RequestIdFilter), which
+  # is also sent to the ML service, so one request can be followed across both.
+  pattern:
+    level: "%5p [%X{requestId:-}]"
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.resumeanalyser: ${LOG_LEVEL:INFO}
+  # Set LOG_FILE (e.g. logs/backend.log) to also write a rolling file.
+  file:
+    name: ${LOG_FILE:}
+
 app:
   jwt:
     # NFR-2.4: production must set JWT_SECRET; this default is dev-only.
@@ -26,7 +38,7 @@ app:
   # Object storage (MinIO locally, S3-compatible anywhere else) for uploaded
   # resume files; Resume.fileRef stores the object key, never the bytes.
   storage:
-    endpoint: ${OBJECT_STORAGE_ENDPOINT:http://localhost:9000}
+    endpoint: ${OBJECT_STORAGE_ENDPOINT:http://localhost:9010}
     access-key: ${OBJECT_STORAGE_ACCESS_KEY:minioadmin}
     secret-key: ${OBJECT_STORAGE_SECRET_KEY:minioadmin}
     bucket: ${OBJECT_STORAGE_BUCKET:resumes}
@@ -35,9 +47,27 @@ app:
     # calls for parsing, matching, ATS scoring, and analysis.
     base-url: ${ML_SERVICE_BASE_URL:http://localhost:8000}
   cors:
-    # Origins allowed to call this API from a browser (the Angular dev server by
+    # Origins allowed to call this API from a browser (the frontend's static dev server by
     # default). Comma-separated for multiple origins in other environments.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+  tiers:
+    # What each tier gets from the analysis pipeline (see README "Domains and
+    # tiers"). Engineering & Technology runs on the local engine and is
+    # unlimited for everyone; other fields need the AI engine, which a free
+    # account may use ai-analyses-per-month times per calendar month (UTC).
+    # A credit is spent only when the ML service reports a paid extraction
+    # (AnalyzeResponse.ai_extraction_used) -- cache hits are free.
+    free:
+      ai-analyses-per-month: ${FREE_AI_ANALYSES_PER_MONTH:3}
+      top-n: 3
+    premium:
+      top-n: 5
+  admin:
+    # Bootstrap administrators: accounts with these emails (comma-separated)
+    # become ADMIN when they register or log in, so the first admin never
+    # needs a manual database edit. Admins promote other accounts to
+    # PREMIUM_USER via PATCH /admin/users/{id}/role (no payments in the MVP).
+    emails: ${APP_ADMIN_EMAILS:}
   skill-vector:
     # FR-7.2's smoothing factor: new_weight = alpha*new_signal + (1-alpha)*old_weight.
     # Not specified by the SRS -- 0.3 is a standard, moderate EMA smoothing choice

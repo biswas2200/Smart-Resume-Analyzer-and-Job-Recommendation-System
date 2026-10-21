@@ -21,7 +21,7 @@ def test_pdf_extension_match_is_case_insensitive():
 
 def test_unsupported_extension_raises():
     with pytest.raises(UnsupportedDocumentTypeError):
-        get_extractor_for_filename("resume.docx")
+        get_extractor_for_filename("resume.odt")
 
 
 def test_no_extension_raises():

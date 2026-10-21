@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -31,20 +33,61 @@ class ParseResponse(BaseModel):
     profile: ResumeProfile
 
 
+class DomainDetection(BaseModel):
+    """Which job domain a resume belongs to, decided deterministically by
+    domain_classifier.py (no LLM), plus how data/domains.json says it is
+    served: `engine` is what decides whether an analysis needs the AI engine
+    (and so the free tier's monthly allowance); `tier` is the tier on which
+    the domain is *unlimited* -- informational for the UI, not a gate.
+    """
+
+    domain: str
+    name: str
+    confidence: float
+    engine: Literal["local", "llm"]
+    tier: Literal["free", "premium"]
+
+
 class MatchRequest(BaseModel):
     skills: list[str]
     top_n: int = 5
+    # Which catalogue to rank against (an id from data/domains.json).
+    domain: str = "engineering"
 
 
 class RoleMatch(BaseModel):
     role: str
+    domain: str = "engineering"
+    # One-line description from the catalogue, so the backend can fill in
+    # Role.description without a second lookup.
+    description: str = ""
     score: float
     matched_skills: list[str]
     missing_skills: list[str]
 
 
+class EngineFingerprint(BaseModel):
+    """Identifies exactly which core-engine artifact produced a response
+    (FR-11.2): a Community user can compare this against the same field from
+    a web deployment's GET /health to prove they're running the same engine
+    (see docs/editions-and-parity.md).
+    """
+
+    engine_version: str
+    ner_model_sha: str
+    embed_model_sha: str
+    taxonomy_sha: str
+    weights_snapshot_id: str
+
+
 class MatchResponse(BaseModel):
     matches: list[RoleMatch]
+    engine_fingerprint: EngineFingerprint
+
+
+class HealthResponse(BaseModel):
+    status: str
+    engine_fingerprint: EngineFingerprint
 
 
 class AtsCheck(BaseModel):
@@ -69,14 +112,117 @@ class GapAnalysis(BaseModel):
     missing_skills: list[str]
 
 
+Tier = Literal["free", "premium"]
+LockReason = Literal["ai_engine_required", "community_edition", "ai_budget_exhausted"]
+
+
+class JdMatchRequest(BaseModel):
+    """One pasted job description against an already-extracted skill set
+    (services/jd_match.py). `skills` are the candidate's, as the pipeline
+    returned them; `domain` picks the catalogue for the closest-role hint."""
+
+    skills: list[str]
+    jd_text: str = Field(min_length=1, max_length=20_000)
+    domain: str = "engineering"
+
+
+class JdMatchResponse(BaseModel):
+    # 0.6 * coverage + 0.4 * similarity, 2 dp -- see services/jd_match.py.
+    score: float
+    # Share of the JD's recognised skills the resume has exactly.
+    coverage: float
+    # Cosine similarity of the two skill sets' mean embeddings (partial credit).
+    similarity: float
+    jd_skills: list[str]
+    matched_skills: list[str]
+    missing_skills: list[str]
+    # The catalogue role the JD most resembles, or None if no skill was recognised.
+    closest_role: RoleMatch | None = None
+    explanation: str
+    engine_fingerprint: EngineFingerprint
+
+
 class AnalyzeRequest(BaseModel):
     resume_text: str
     top_n: int = 3
+    # The requesting user's tier (the backend maps USER -> free,
+    # PREMIUM_USER/ADMIN -> premium). Together with the detected domain's
+    # engine this decides whether recommendations are unlocked and which
+    # explainer runs -- see services/pipeline.py.
+    tier: Tier = "free"
+    # Whether this free-tier request may spend one AI extraction (the
+    # backend sets it while the account's monthly allowance lasts). Ignored
+    # for premium, which is always allowed. Defaults to false so a raw
+    # caller never triggers a paid call by accident.
+    llm_allowed: bool = False
+
+
+class LLMCallUsage(BaseModel):
+    """One LLM call's token counts and estimated cost (llm_client.LLMUsage).
+    thinking_tokens are Gemini's reasoning tokens, billed as output;
+    cache_hit calls cost nothing and report zero tokens."""
+
+    provider: str
+    model: str
+    purpose: str
+    prompt_tokens: int
+    output_tokens: int
+    thinking_tokens: int = 0
+    cached_tokens: int = 0
+    estimated_cost_usd: float
+    cache_hit: bool = False
+
+
+class LLMUsageSummary(BaseModel):
+    """Totals over a set of LLM calls -- one analysis, or the whole process."""
+
+    calls: int = 0
+    cache_hits: int = 0
+    prompt_tokens: int = 0
+    output_tokens: int = 0
+    thinking_tokens: int = 0
+    cached_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    details: list[LLMCallUsage] = Field(default_factory=list)
+
+
+class LLMPricing(BaseModel):
+    """The list prices the estimates were computed with (Settings)."""
+
+    input_usd_per_1m: float
+    output_usd_per_1m: float
+
+
+class LLMUsageReport(BaseModel):
+    """GET /llm-usage: process totals since start (or the last reset), the
+    pricing assumption behind them, and the most recent calls."""
+
+    since: str
+    provider: str
+    model: str
+    pricing: LLMPricing
+    totals: LLMUsageSummary
 
 
 class AnalyzeResponse(BaseModel):
     profile: ResumeProfile
+    domain: DomainDetection
     ats_score: AtsScoreResponse
     matches: list[RoleMatch]
     gaps: list[GapAnalysis]
+    # True when the domain needs the AI engine and this request could not
+    # use it: matches/gaps are then empty and lock_reason says why --
+    # "ai_engine_required" (free tier, allowance spent), "community_edition"
+    # (no LLM provider in this deployment), or "ai_budget_exhausted" (the
+    # free tier's daily budget guard). See services/pipeline.py.
+    recommendations_locked: bool = False
+    lock_reason: LockReason | None = None
     explanation: str
+    explanation_source: Literal["template", "llm"]
+    engine_fingerprint: EngineFingerprint
+    # True only when a paid (non-cached) AI extraction ran for this request
+    # -- what the backend counts against a free account's allowance.
+    ai_extraction_used: bool = False
+    # What this analysis spent on LLM calls: None when it made none (every
+    # free-tier result); a cache hit is listed as a call at zero cost.
+    llm_usage: LLMUsageSummary | None = None
