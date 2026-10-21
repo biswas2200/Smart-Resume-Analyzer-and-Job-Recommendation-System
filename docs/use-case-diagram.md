@@ -23,7 +23,7 @@ flowchart LR
     Institution((Institution /<br/>Placement Cell))
     LLM([Google Vertex AI — Gemini])
 
-    subgraph SYS["Intelligent Resume Analyser and Career Recommendation System"]
+    subgraph SYS["Coverlay"]
         UC1["Upload resume (PDF)\n[Implemented — POST /resumes, /parse-file]"]
         UC2["Parse resume into\nstructured profile\n[Implemented — local NER; LLM non-eng]"]
         UC3["Normalize extracted skills\n[Implemented — normalizer.py]"]

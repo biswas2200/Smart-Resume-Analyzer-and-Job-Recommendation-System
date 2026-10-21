@@ -97,5 +97,22 @@
   "Microcontrollers": ["microcontrollers", "mcu"],
   "Debugging": ["debugging"],
   "System Design": ["system design"],
-  "Webpack": ["webpack"]
+  "Webpack": ["webpack"],
+  "Kafka": ["kafka", "apache kafka"],
+  "Redis": ["redis"],
+  "GraphQL": ["graphql"],
+  "FastAPI": ["fastapi"],
+  "Django": ["django"],
+  "Flask": ["flask"],
+  "MongoDB": ["mongodb", "mongo db"],
+  "Elasticsearch": ["elasticsearch", "elastic search"],
+  "RabbitMQ": ["rabbitmq"],
+  "gRPC": ["grpc"],
+  "Jenkins": ["jenkins"],
+  "GitHub Actions": ["github actions"],
+  "Ansible": ["ansible"],
+  "Angular": ["angular", "angularjs", "angular.js"],
+  "Vue.js": ["vue", "vuejs", "vue.js"],
+  "Hadoop": ["hadoop", "apache hadoop"],
+  "Golang": ["golang"]
 }

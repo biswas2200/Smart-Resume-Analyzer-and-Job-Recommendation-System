@@ -18,7 +18,7 @@ configure_logging(_settings.log_level, _settings.log_file)
 log = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Intelligent Resume Analyser — ML Service",
+    title="Coverlay — ML Service",
     description=(
         "Resume parsing, skill normalization, embedding-based role matching, "
         "ATS scoring, gap analysis, and explanation generation."

@@ -72,7 +72,27 @@ def test_render_template_surfaces_failed_ats_checks():
 
     text = render_template(profile, ats, matches, gaps)
 
-    assert "contact_phone" in text
+    assert "add a phone number" in text
+    assert "contact_phone" not in text
+
+
+def test_render_template_words_an_unknown_check_without_underscores():
+    profile, ats, matches, gaps = _profile_ats_matches_gaps()
+    ats.checks.append(AtsCheck(name="file_format", passed=False, detail="Scanned image."))
+
+    text = render_template(profile, ats, matches, gaps)
+
+    assert "file format" in text
+    assert "file_format" not in text
+
+
+def test_render_template_shows_the_match_as_a_percentage():
+    profile, ats, matches, gaps = _profile_ats_matches_gaps()
+
+    text = render_template(profile, ats, matches, gaps)
+
+    assert "Data Scientist (80% match)" in text
+    assert "0.8" not in text
 
 
 def test_render_template_surfaces_top_match_and_missing_skills():

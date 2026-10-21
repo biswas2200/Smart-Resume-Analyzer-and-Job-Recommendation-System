@@ -53,6 +53,21 @@ def test_extracts_canonical_skills_from_a_jd_across_both_taxonomies():
     assert len(skills) == len(set(skills))  # deduplicated
 
 
+def test_job_ad_boilerplate_words_are_not_counted_as_skills():
+    jd = (
+        "We are hiring a backend engineer to design and build microservices with Kafka, "
+        "Redis, GraphQL and FastAPI. We value diversity, equity and inclusion and offer "
+        "competitive compensation."
+    )
+
+    skills = jd_match.extract_jd_skills(jd)
+
+    for expected in ("Microservices", "Kafka", "Redis", "GraphQL", "FastAPI"):
+        assert expected in skills, expected
+    for boilerplate in ("Hiring", "Design", "Equity", "Inclusion", "Compensation"):
+        assert boilerplate not in skills, boilerplate
+
+
 def test_full_coverage_scores_high_and_lists_no_missing_skills():
     jd_skills = jd_match.extract_jd_skills(BACKEND_JD)
 
@@ -106,7 +121,7 @@ def test_match_jd_endpoint_round_trips_and_validates_length():
     body = response.json()
     assert {"score", "coverage", "similarity", "jd_skills", "matched_skills", "missing_skills",
             "closest_role", "explanation", "engine_fingerprint"} <= body.keys()
-    assert body["engine_fingerprint"]["engine_version"] == "0.5.0"
+    assert body["engine_fingerprint"]["engine_version"] == "0.5.1"
 
     assert client.post("/match-jd", json={"skills": [], "jd_text": ""}).status_code == 422
     assert client.post("/match-jd", json={"skills": [], "jd_text": "x" * 20_001}).status_code == 422

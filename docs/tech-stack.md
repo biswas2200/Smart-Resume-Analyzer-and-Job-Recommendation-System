@@ -1,10 +1,10 @@
 # Tech stack
 
-Each layer's stack and whether it is built or planned. Sources: the repo root `README.md`, [SRS v2.0 §2.4](srs.md#24-operating-environment), the service manifests (`backend/pom.xml`, `ml-service/requirements.txt`) and, since the frontend has no dependency manifest, its Bootstrap `<link>` tags (`frontend/src/*.html`).
+Each layer's stack and whether it is built or planned. Sources: the repo root `README.md`, [SRS v2.0 §2.4](srs.md#24-operating-environment), the service manifests (`backend/pom.xml`, `ml-service/requirements.txt`) and, since the frontend has no dependency manifest, its pages and stylesheet (`frontend/src/*.html`, `frontend/src/css/app.css`).
 
 | Layer | Stack | Status |
 |---|---|---|
-| Frontend | HTML5, Bootstrap 5.3, vanilla JavaScript (ES modules, no build step); tests via `node --test`; static files served by nginx | Implemented (`frontend/`) |
+| Frontend | HTML5, one hand-written CSS file (light and dark themes, no CSS framework), vanilla JavaScript (ES modules, no build step); fonts from Google Fonts (Plus Jakarta Sans, JetBrains Mono); tests via `node --test`; static files served by nginx | Implemented (`frontend/`) |
 | Backend | Java 21, Spring Boot 3.3, Spring Security (JWT, method security), Spring Data JPA, Flyway, springdoc-openapi | Implemented (`backend/`) |
 | Database | PostgreSQL 15 (Docker Compose locally), schema managed by Flyway (`V1__init_schema.sql`), `ddl-auto: validate` | Implemented |
 | Object storage | MinIO (S3-compatible) for uploaded resume files (`resume.ResumeStorageService`); no separate NoSQL store (see [LLD §7.3](lld.md)) | Implemented |

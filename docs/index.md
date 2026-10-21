@@ -1,4 +1,4 @@
-# Intelligent Resume Analyser and Career Recommendation System: documentation
+# Coverlay: documentation
 
 An AI-assisted resume analyser and career recommendation system. Its core engine is deterministic: local NER extraction, taxonomy normalization, embedding-based skill-to-role matching and rule-based ATS scoring. An LLM is used in two optional places, a coaching narrative in the Premium tier and an opt-in extraction path. It never rewrites resumes and never produces a score.
 
@@ -52,7 +52,7 @@ If you're new to the project, read in this order:
 |---|---|
 | ML service (`ml-service/`): extraction (local NER; Gemini via ADC for non-engineering Premium), domain detection, normalization, matching (per-domain catalogues), ATS scoring, gap analysis, explanation, DOCX + PDF | Implemented, tested (`pytest tests/`) |
 | Backend (`backend/`, Spring Boot): JWT auth, RBAC roles, admin upgrade path, resume upload + MinIO storage, re-analysis, recommendations with domain/lock state, feedback, EMA skill-vector update | Implemented |
-| Frontend (`frontend/`, HTML + Bootstrap 5 + vanilla JS): upload, dashboard (domain badge, locked card, re-analyse), recommendations, feedback, tier badge | Implemented |
+| Frontend (`frontend/`, HTML + hand-written CSS + vanilla JS, dashboard layout with a sidebar): resume analyzer with versions, dashboard (ATS checks with fixes, domain badge, locked card), role matches, feedback, Premium JD match, tier badge | Implemented |
 | Career OS domain split: engineering free on the local engine; 12 other domains Premium on Gemini (ADC); `engine`/`tier` per domain in `domains.json` | Implemented (MVP, 2026-09-14) |
 | Core-engine parity work: template explainer, pinned ONNX models, engine fingerprint, 2-dp rounding | Planned (step 1) |
 | Restaged pipeline: sectioner, dictionary skills, precomputed vector tables | Planned (step 2) |

@@ -59,7 +59,14 @@ _SKILL_DELIMITER_RE = re.compile(r"[,/|;•\n]+|\band\b", re.IGNORECASE)
 # rejecting a domain with no dot in it (an edge case this lenient,
 # heuristic check doesn't need to catch anyway).
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w.-]+")
-_PHONE_RE = re.compile(r"(?:\+?\d{1,3}[-.\s]?)?\(?\d{3,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}")
+#
+# _PHONE_RE's first branch is the Indian mobile written as two groups of
+# five ("+91 98765 43210"), which the 3/4-digit grouping of the second
+# branch can't split; it requires the separator, so a bare ten-digit run
+# still goes to the second branch.
+_PHONE_RE = re.compile(
+    r"(?:\+?\d{1,3}[-.\s]?)?(?:\d{5}[-.\s]\d{5}|\(?\d{3,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4})"
+)
 
 # Matches date ranges like "Jan 2020 - Mar 2022", "2019-2021",
 # "Jun 2021 to Present". There is no NER entity for a job's duration at all,

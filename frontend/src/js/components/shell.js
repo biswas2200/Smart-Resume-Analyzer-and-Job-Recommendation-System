@@ -142,7 +142,7 @@ export function renderVersions(versions, currentId = null) {
 /** The logo link used in the sidebar and on the public pages. */
 export function brandLink() {
   const link = el('a', { class: 'brand', href: 'index.html' });
-  link.append(brandMark(), 'Smart Resume Analyser');
+  link.append(brandMark(), 'Coverlay');
   return link;
 }
 

@@ -1,6 +1,6 @@
 # System architecture
 
-> Project: Intelligent Resume Analyser and Career Recommendation System
+> Project: Coverlay
 > Scope: a candidate-facing resume analyser, delivered as a cloud platform on Google Cloud Platform (GCP) with two tiers, Cloud Web Free and Cloud Web Premium. Both share one deterministic core engine with an explainable score, and call Google Vertex AI for specific tasks. The offline self-hosted distribution is archived in [`docs/archive/community-edition.md`](archive/community-edition.md).
 
 ## 1. Why this architecture
@@ -15,7 +15,7 @@ Three deployable services, all implemented, hosted on GCP:
 
 ```mermaid
 flowchart TB
-    subgraph Client["Client — Browser (HTML + Bootstrap + vanilla JS)"]
+    subgraph Client["Client — Browser (HTML + CSS + vanilla JS)"]
         UI["Web pages\n(Upload · Dashboard · Feedback · Tier badges)"]
     end
 

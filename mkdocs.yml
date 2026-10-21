@@ -1,7 +1,6 @@
-site_name: Intelligent Resume Analyser — Documentation
+site_name: Coverlay — Documentation
 site_description: >-
-  Architecture, design, and data-model documentation for the Intelligent
-  Resume Analyser and Career Recommendation System.
+  Architecture, design, and data-model documentation for Coverlay.
 docs_dir: docs
 site_dir: site
 
