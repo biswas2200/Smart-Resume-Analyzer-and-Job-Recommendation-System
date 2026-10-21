@@ -1,5 +1,6 @@
 import logging
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -12,10 +13,21 @@ from app.routers.llm_usage import router as llm_usage_router
 from app.routers.upload import router as upload_router
 from app.services.fingerprint import engine_fingerprint
 from app.services.llm_client import LLMUnavailableError
+from app.services.local_ner_parser import ensure_local_model
 
 _settings = get_settings()
 configure_logging(_settings.log_level, _settings.log_file)
 log = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Before serving: fetch the NER model from the bucket if it is missing
+    (NER_MODEL_GCS_URI). A failed download stops the service, so it never
+    starts without its model."""
+    ensure_local_model(_settings)
+    yield
+
 
 app = FastAPI(
     title="Coverlay — ML Service",
@@ -23,6 +35,7 @@ app = FastAPI(
         "Resume parsing, skill normalization, embedding-based role matching, "
         "ATS scoring, gap analysis, and explanation generation."
     ),
+    lifespan=lifespan,
 )
 
 @app.middleware("http")

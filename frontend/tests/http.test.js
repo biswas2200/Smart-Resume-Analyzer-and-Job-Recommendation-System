@@ -49,6 +49,13 @@ test('never sends the token to login/register', async () => {
   assert.equal(calls[0].init.body, '{"email":"a@b.c","password":"x"}');
 });
 
+test('never sends the token to the public /tiers, so an expired one cannot sign the visitor out', async () => {
+  respondWith(200, { previewMode: true });
+  assert.deepEqual(await get('/tiers'), { previewMode: true });
+  assert.equal(calls[0].init.headers.Authorization, undefined);
+  assert.equal(getToken(), 'jwt-123');
+});
+
 test('204 No Content resolves to null', async () => {
   respondWith(204);
   assert.equal(await get('/feedback/r1'), null);

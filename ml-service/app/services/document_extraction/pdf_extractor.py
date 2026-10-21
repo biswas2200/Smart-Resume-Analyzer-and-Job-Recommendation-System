@@ -8,6 +8,17 @@ local_ner_parser.py.
 
 import io
 
+from app.services.document_extraction.base import ExtractedText
+
+# Hidden-text rules (_split_hidden_words). Text smaller than this many points
+# is unreadable on a printed or rendered page -- footnotes sit around 6-8 pt
+# -- so anything under it is treated as hidden, as is text placed entirely
+# outside the page and text whose fill colour is white or nearly so (each
+# colour channel within this much of white). White text on a dark filled
+# shape (a coloured header bar) is visible and kept.
+_MIN_VISIBLE_FONT_SIZE = 3.0
+_NEAR_WHITE_TOLERANCE = 0.05
+
 # Words within this many PDF points of vertical difference are treated as
 # being on the same line. 3.0 comfortably covers normal font-size line
 # height variation without merging genuinely separate lines.
@@ -34,19 +45,79 @@ class PdfTextExtractor:
     _reorder_words_into_text for the actual heuristic.
     """
 
-    def extract(self, file_bytes: bytes) -> str:
-        """Extract all pages' text from a PDF's raw bytes, column-aware."""
+    def extract(self, file_bytes: bytes) -> ExtractedText:
+        """Extract all pages' visible text from a PDF's raw bytes,
+        column-aware, counting the hidden words left out."""
         # Imported lazily so pdfplumber only needs to be installed when a
         # PDF is actually being parsed, matching the lazy-import pattern
         # already used for the groq/google-genai/transformers SDKs.
         import pdfplumber
 
+        page_texts = []
+        hidden_word_count = 0
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            page_texts = [
-                _reorder_words_into_text(page.extract_words(), page.width)
-                for page in pdf.pages
-            ]
-        return "\n\n".join(page_texts)
+            for page in pdf.pages:
+                # extra_attrs also splits a run of text wherever its colour
+                # or size changes, so one hidden phrase never rides along
+                # inside a visible word.
+                words = page.extract_words(extra_attrs=["non_stroking_color", "size"])
+                visible, hidden = _split_hidden_words(words, page.rects, page.width, page.height)
+                hidden_word_count += hidden
+                page_texts.append(_reorder_words_into_text(visible, page.width))
+        return ExtractedText("\n\n".join(page_texts), hidden_word_count)
+
+
+def _split_hidden_words(
+    words: list[dict], rects: list[dict], page_width: float, page_height: float
+) -> tuple[list[dict], int]:
+    """Pure function: the words a reader can see, and how many were hidden
+    (see the _MIN_VISIBLE_FONT_SIZE comment for the rules). `rects` is
+    pdfplumber's page.rects; only filled, non-white ones matter, as the
+    dark backgrounds that make white text visible.
+    """
+    dark_fills = [
+        r for r in rects
+        if r.get("fill") and not _is_near_white(r.get("non_stroking_color"))
+    ]
+    visible: list[dict] = []
+    hidden = 0
+    for word in words:
+        if _is_hidden(word, dark_fills, page_width, page_height):
+            hidden += 1
+        else:
+            visible.append(word)
+    return visible, hidden
+
+
+def _is_hidden(word: dict, dark_fills: list[dict], page_width: float, page_height: float) -> bool:
+    if word.get("size", _MIN_VISIBLE_FONT_SIZE) < _MIN_VISIBLE_FONT_SIZE:
+        return True
+    if word["x1"] <= 0 or word["x0"] >= page_width or word["bottom"] <= 0 or word["top"] >= page_height:
+        return True
+    if _is_near_white(word.get("non_stroking_color")):
+        centre_x = (word["x0"] + word["x1"]) / 2
+        centre_y = (word["top"] + word["bottom"]) / 2
+        return not any(
+            r["x0"] <= centre_x <= r["x1"] and r["top"] <= centre_y <= r["bottom"] for r in dark_fills
+        )
+    return False
+
+
+def _is_near_white(color) -> bool:
+    """True for a gray, RGB or CMYK fill colour (pdfplumber gives a tuple of
+    1, 3 or 4 numbers) that is white or nearly so. Anything else -- no
+    colour, a pattern name -- counts as not white."""
+    if not isinstance(color, (tuple, list)) or not color:
+        return False
+    try:
+        channels = [float(c) for c in color]
+    except (TypeError, ValueError):
+        return False
+    if len(channels) == 4:  # CMYK: white is no ink at all
+        return all(c <= _NEAR_WHITE_TOLERANCE for c in channels)
+    if len(channels) in (1, 3):  # gray or RGB: white is full intensity
+        return all(c >= 1 - _NEAR_WHITE_TOLERANCE for c in channels)
+    return False
 
 
 def _reorder_words_into_text(words: list[dict], page_width: float) -> str:

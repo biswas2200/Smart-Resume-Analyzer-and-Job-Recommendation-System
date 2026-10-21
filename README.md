@@ -40,6 +40,12 @@ and `POST /resumes/{id}/reanalyze` unlocks it once the allowance resets or the
 account is Premium. Flipping a domain's `engine` to deterministic once trained models
 support it is a data change, not a code change.
 
+**Preview mode (0.x, on by default).** Until the beta, Premium is waived:
+`PREVIEW_MODE=true` gives every account Premium (AI suggestions, five roles, JD
+match, unlimited analyses and history), and the app and landing page show a
+"Preview" banner instead of upgrade prompts. Roles are never
+changed, so `PREVIEW_MODE=false` restores the table above.
+
 **Credentials:** the only Google credential is Application Default Credentials —
 `gcloud auth application-default login` on a dev machine, an attached service
 account on GCP — plus `GOOGLE_CLOUD_PROJECT`. There is no API key anywhere.

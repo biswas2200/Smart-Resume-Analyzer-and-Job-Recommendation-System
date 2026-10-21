@@ -41,6 +41,11 @@ export const CHECK_GUIDE = {
     weight: 10,
     fix: 'Your resume is under 150 words. Describe each role in 2 to 4 bullet points about what you achieved.',
   },
+  no_hidden_text: {
+    label: 'No hidden text',
+    weight: 10,
+    fix: 'Remove text a reader cannot see: white text, very small text or text placed off the page. Screening software treats it as keyword stuffing, and we ignored it.',
+  },
   keyword_coverage: {
     label: 'Keywords for your target roles',
     weight: 20,

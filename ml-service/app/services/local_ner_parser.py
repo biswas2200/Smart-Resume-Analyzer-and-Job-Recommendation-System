@@ -17,6 +17,8 @@ file.
 import hashlib
 import logging
 import re
+import shutil
+import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Callable
@@ -199,15 +201,55 @@ def resolve_local_model_dir(name: str) -> Path | None:
     that looks like a path but does not exist raises, so a missing download
     fails at start-up instead of silently querying the hub for "models/...".
     """
-    path = Path(name)
-    if not path.is_absolute():
-        path = SERVICE_DIR / path
-    if path.is_dir():
+    path = _local_model_path(name)
+    if path is not None and path.is_dir():
         return path
-    if name.startswith(("models/", "./", "/")):
+    if path is not None and name.startswith(("models/", "./", "/")):
         raise FileNotFoundError(
-            f"NER model directory {path} not found. Run scripts/fetch_ner_models.sh first."
+            f"NER model directory {path} not found. Set NER_MODEL_GCS_URI to download it at "
+            "start-up, or run scripts/fetch_ner_models.sh first."
         )
+    return None
+
+
+def ensure_local_model(settings) -> None:
+    """At start-up: when the NER model is a local folder that is missing and
+    NER_MODEL_GCS_URI names its copy in the bucket, download it with ADC.
+    The files land in a staging folder, are checked against the pinned
+    SHA-256, and only then take the model folder's place, so a failed or
+    tampered download never becomes the model. Does nothing for a hub id,
+    an existing folder, or the LLM parser.
+    """
+    if settings.parser_backend != "local" or not settings.ner_model_gcs_uri:
+        return
+    path = _local_model_path(settings.ner_model_name)
+    if path is None or path.is_dir():
+        return
+
+    from app.services.gcs_download import download_folder
+
+    staging = path.parent / f".{path.name}.download"
+    logger.info("NER model %s missing; downloading %s", path, settings.ner_model_gcs_uri)
+    start = time.perf_counter()
+    try:
+        count = download_folder(settings.ner_model_gcs_uri, staging)
+        verify_local_model(staging, settings.ner_model_revision)
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    staging.rename(path)
+    logger.info("Downloaded the NER model (%d files) in %.0fs", count, time.perf_counter() - start)
+
+
+def _local_model_path(name: str) -> Path | None:
+    """Where `name` would live on disk (relative paths are taken from
+    ml-service/), or None when it reads as a Hugging Face id."""
+    path = Path(name)
+    if path.is_absolute():
+        return path
+    path = SERVICE_DIR / path
+    if path.is_dir() or name.startswith(("models/", "./")):
+        return path
     return None
 
 

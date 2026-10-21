@@ -62,6 +62,12 @@ app:
       top-n: 3
     premium:
       top-n: 5
+    # Preview mode (0.x, until the beta): every account gets Premium, the
+    # UI shows a "free during the preview" banner and no upgrade prompts.
+    # Roles are untouched, so PREVIEW_MODE=false restores Free/Premium.
+    # Every analysis then runs at the Premium tier, which the ML service's
+    # LLM_DAILY_BUDGET_USD brake never limits (about $0.00035 per AI analysis).
+    preview-mode: ${PREVIEW_MODE:true}
   admin:
     # Bootstrap administrators: accounts with these emails (comma-separated)
     # become ADMIN when they register or log in, so the first admin never

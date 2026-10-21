@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 
 from app.models.schemas import AnalyzeResponse, ParseResponse, Tier
 from app.services import pipeline
-from app.services.document_extraction.base import UnsupportedDocumentTypeError
+from app.services.document_extraction.base import ExtractedText, UnsupportedDocumentTypeError
 from app.services.document_extraction.registry import get_extractor_for_filename
 from app.services.parser import parse_resume
 
@@ -20,7 +20,7 @@ router = APIRouter()
 log = logging.getLogger(__name__)
 
 
-async def _extract_text(file: UploadFile) -> str:
+async def _extract_text(file: UploadFile) -> ExtractedText:
     try:
         extractor = get_extractor_for_filename(file.filename or "")
     except UnsupportedDocumentTypeError as error:
@@ -28,10 +28,13 @@ async def _extract_text(file: UploadFile) -> str:
         raise HTTPException(status_code=415, detail=str(error)) from error
 
     file_bytes = await file.read()
-    text = extractor.extract(file_bytes)
+    extracted = extractor.extract(file_bytes)
     # The extension and sizes only: a file name often carries the person's name.
-    log.info("extracted %d chars from a %s file of %d bytes", len(text), _extension(file.filename), len(file_bytes))
-    return text
+    log.info(
+        "extracted %d chars (%d hidden words left out) from a %s file of %d bytes",
+        len(extracted.text), extracted.hidden_word_count, _extension(file.filename), len(file_bytes),
+    )
+    return extracted
 
 
 def _extension(filename: str | None) -> str:
@@ -44,8 +47,8 @@ async def parse_file(file: UploadFile) -> ParseResponse:
     document_extraction/registry.py for what's supported) and run it
     through the existing parse_resume() pipeline unchanged.
     """
-    resume_text = await _extract_text(file)
-    return ParseResponse(profile=parse_resume(resume_text))
+    extracted = await _extract_text(file)
+    return ParseResponse(profile=parse_resume(extracted.text))
 
 
 @router.post("/analyze-file", responses={415: {"description": "Unsupported file type"}})
@@ -62,5 +65,8 @@ async def analyze_file(
     and whether a free account still has an AI analysis left this month --
     since a file upload has no JSON body to carry them in.
     """
-    resume_text = await _extract_text(file)
-    return pipeline.analyze_text(resume_text, top_n=top_n, tier=tier, llm_allowed=llm_allowed)
+    extracted = await _extract_text(file)
+    return pipeline.analyze_text(
+        extracted.text, top_n=top_n, tier=tier, llm_allowed=llm_allowed,
+        hidden_word_count=extracted.hidden_word_count,
+    )

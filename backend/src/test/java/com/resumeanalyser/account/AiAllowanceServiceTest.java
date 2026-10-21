@@ -31,7 +31,7 @@ class AiAllowanceServiceTest {
 
     private static final Clock MID_SEPTEMBER = Clock.fixed(Instant.parse("2026-09-14T10:00:00Z"), ZoneOffset.UTC);
     private static final TierProperties TIERS =
-            new TierProperties(new TierProperties.Free(3, 3), new TierProperties.Premium(5));
+            new TierProperties(new TierProperties.Free(3, 3), new TierProperties.Premium(5), false);
 
     @Mock
     private UserRepository userRepository;
@@ -108,6 +108,18 @@ class AiAllowanceServiceTest {
 
         assertThat(after.used()).isEqualTo(3);
         assertThat(after.available()).isFalse();
+    }
+
+    @Test
+    void previewMode_metersNobody_evenAFreeAccount() {
+        TierProperties preview = new TierProperties(new TierProperties.Free(3, 3), new TierProperties.Premium(5), true);
+        AiAllowanceService service = new AiAllowanceService(userRepository, preview, MID_SEPTEMBER);
+        User user = userWithRole(UserRole.USER);
+
+        assertThat(service.status(user)).isNull();
+        assertThat(service.available(user)).isTrue();
+        assertThat(service.consume(user)).isNull();
+        verifyNoInteractions(userRepository);
     }
 
     @Test

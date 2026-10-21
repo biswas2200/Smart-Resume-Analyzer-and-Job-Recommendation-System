@@ -49,7 +49,7 @@ CHARS_PER_TOKEN = 4.0
 def _read_text(path: Path) -> str:
     if path.suffix.lower() == ".txt":
         return path.read_text(encoding="utf-8")
-    return get_extractor_for_filename(path.name).extract(path.read_bytes())
+    return get_extractor_for_filename(path.name).extract(path.read_bytes()).text
 
 
 def _estimate_tokens(text: str) -> int:

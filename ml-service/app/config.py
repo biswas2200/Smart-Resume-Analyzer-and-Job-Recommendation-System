@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     # NER_MODEL_NAME=yashpwr/resume-ner-bert and
     # NER_MODEL_REVISION=3ea6ecf44274c0947b6e627bd36c32ec0e8c3eb8.
     ner_model_name: str = "models/ner/teacher-run1"
+    # The bucket folder holding that model, e.g.
+    # gs://smart-resume-analyzer-a7x2-data/runs/teacher. When set and the
+    # local folder is missing, the service downloads it at start-up with ADC
+    # and checks it against NER_MODEL_REVISION before use
+    # (local_ner_parser.ensure_local_model). Empty: the folder must already
+    # exist (scripts/fetch_ner_models.sh).
+    ner_model_gcs_uri: str = ""
 
     # Gemini runs on Vertex AI and authenticates with Application Default
     # Credentials (ADC): `gcloud auth application-default login` on a dev
@@ -122,7 +129,7 @@ class Settings(BaseSettings):
     # Engine version stamped into every engine_fingerprint (FR-11.2, see
     # fingerprint.py) -- bumped on any release that changes scoring behavior,
     # so two deployments can prove they're running the same core engine.
-    engine_version: str = "0.5.1"
+    engine_version: str = "0.5.2"
 
     # Revision/commit pins for the two models fingerprint.py hashes into
     # engine_fingerprint.ner_model_sha / embed_model_sha. Real content-hash

@@ -4,7 +4,20 @@ at runtime by registry.py -- follows the same Protocol-based, Open/Closed
 shape as LLMClient in llm_client.py (see CLAUDE.md, "Design principles").
 """
 
+from dataclasses import dataclass
 from typing import Protocol
+
+
+@dataclass(frozen=True)
+class ExtractedText:
+    """A file's readable text plus how many words were left out of it
+    because a reader could not see them (white, tiny or off-page text in a
+    PDF) -- the ATS "no_hidden_text" check reports that count, since hidden
+    text is how keyword stuffing and prompt injection get into a resume.
+    """
+
+    text: str
+    hidden_word_count: int = 0
 
 
 class DocumentTextExtractor(Protocol):
@@ -12,10 +25,10 @@ class DocumentTextExtractor(Protocol):
     correct reading order. Implemented once per supported file format.
     """
 
-    def extract(self, file_bytes: bytes) -> str:
-        """Return the file's text content, reordered into correct reading
-        order where the format's structure requires it (e.g. multi-column
-        PDFs).
+    def extract(self, file_bytes: bytes) -> ExtractedText:
+        """Return the file's visible text content, reordered into correct
+        reading order where the format's structure requires it (e.g.
+        multi-column PDFs).
         """
         ...
 

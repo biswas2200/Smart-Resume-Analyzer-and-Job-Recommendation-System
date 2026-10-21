@@ -48,12 +48,14 @@ services:
       LLM_INPUT_USD_PER_1M: ${LLM_INPUT_USD_PER_1M:-0.10}
       LLM_OUTPUT_USD_PER_1M: ${LLM_OUTPUT_USD_PER_1M:-0.40}
       LLM_DAILY_BUDGET_USD: ${LLM_DAILY_BUDGET_USD:-0}
+      # The trained NER model is downloaded from this bucket folder on the
+      # first start (ADC below) into the ner-models volume, then reused.
+      NER_MODEL_GCS_URI: ${NER_MODEL_GCS_URI:-gs://smart-resume-analyzer-a7x2-data/runs/teacher}
     ports:
       - "8000:8000"
     volumes:
       - hf-models:/models
-      # Trained NER models (ml-service/scripts/fetch_ner_models.sh).
-      - ./ml-service/models:/srv/models:ro
+      - ner-models:/srv/models
       - ${GCLOUD_ADC_PATH:-~/.config/gcloud/application_default_credentials.json}:/gcloud/application_default_credentials.json:ro
 
   backend:
@@ -72,6 +74,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-32-bytes-minimum-please}
       # Comma-separated emails that become ADMIN on register/login.
       APP_ADMIN_EMAILS: ${APP_ADMIN_EMAILS:-}
+      PREVIEW_MODE: ${PREVIEW_MODE:-true}
     ports:
       - "8080:8080"
 
@@ -86,3 +89,4 @@ volumes:
   postgres-data:
   minio-data:
   hf-models:
+  ner-models:

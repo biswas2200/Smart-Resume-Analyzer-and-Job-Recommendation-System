@@ -9,13 +9,11 @@ import com.resumeanalyser.resume.mapper.ResumeMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -25,8 +23,6 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -34,15 +30,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Web-layer tests for {@code POST /resumes/{id}/jd-match}: Premium-only via
- * {@code @PreAuthorize} (FR-12.2), body validation, and the pass-through of
- * the service's result.
+ * Web-layer tests for {@code POST /resumes/{id}/jd-match}: the service's
+ * Premium refusal (FR-12.2; see ResumeServiceTest) becomes a 403, body
+ * validation, and the pass-through of the service's result.
  */
 @WebMvcTest(
         controllers = ResumeController.class,
         excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtAuthenticationFilter.class)
 )
-@Import(ResumeControllerJdMatchTest.MethodSecurityConfig.class)
 class ResumeControllerJdMatchTest {
 
     @Autowired
@@ -61,13 +56,17 @@ class ResumeControllerJdMatchTest {
 
     @Test
     @WithMockUser(username = "free@example.com", roles = "USER")
-    void jdMatch_isForbiddenForAFreeAccount() throws Exception {
+    void jdMatch_isForbidden_whenTheServiceRefusesAFreeAccount() throws Exception {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        when(userRepository.findByEmail("free@example.com")).thenReturn(Optional.of(user));
+        when(resumeService.matchJobDescription(eq(user), eq(resumeId), any()))
+                .thenThrow(new AccessDeniedException("JD match is a Premium feature"));
+
         mockMvc.perform(post("/resumes/{id}/jd-match", resumeId).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"jdText\":\"Java, Spring Boot, SQL\"}"))
                 .andExpect(status().isForbidden());
-
-        verify(resumeService, never()).matchJobDescription(any(), any(), any());
     }
 
     @Test
@@ -99,9 +98,4 @@ class ResumeControllerJdMatchTest {
                         .content("{\"jdText\":\"   \"}"))
                 .andExpect(status().isBadRequest());
     }
-
-    /** Enables {@code @PreAuthorize} evaluation inside this web-layer-only test slice. */
-    @TestConfiguration
-    @EnableMethodSecurity
-    static class MethodSecurityConfig {}
 }

@@ -33,9 +33,9 @@ public class AiAllowanceService {
         this.clock = clock;
     }
 
-    /** This month's allowance for a free account, or null for a Premium/admin account. */
+    /** This month's allowance for a free account, or null for a Premium/admin account (or in preview mode). */
     public AiAllowanceDto status(User user) {
-        if (user.getRole() != UserRole.USER) {
+        if (tiers.isPremium(user.getRole())) {
             return null;
         }
         YearMonth month = currentMonth();
@@ -57,7 +57,7 @@ public class AiAllowanceService {
      */
     @Transactional
     public AiAllowanceDto consume(User user) {
-        if (user.getRole() != UserRole.USER) {
+        if (tiers.isPremium(user.getRole())) {
             return null;
         }
         String period = currentMonth().toString();

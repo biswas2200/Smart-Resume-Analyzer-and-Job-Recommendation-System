@@ -3,7 +3,6 @@ package com.resumeanalyser.resume;
 import com.resumeanalyser.account.AiAllowanceService;
 import com.resumeanalyser.account.TierProperties;
 import com.resumeanalyser.account.User;
-import com.resumeanalyser.account.UserRole;
 import com.resumeanalyser.client.MlServiceClient;
 import com.resumeanalyser.client.dto.AnalyzeResponseDto;
 import com.resumeanalyser.client.dto.JdMatchResponseDto;
@@ -13,6 +12,7 @@ import com.resumeanalyser.recommendation.RecommendationService;
 import com.resumeanalyser.resume.dto.JdMatchResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -111,7 +111,7 @@ public class ResumeService {
      * result, or a cache hit never costs the user anything.
      */
     private AnalyzeResponseDto analyze(User user, byte[] bytes, String filename) {
-        boolean premium = !"free".equals(tierFor(user));
+        boolean premium = tiers.isPremium(user.getRole());
         boolean llmAllowed = premium || aiAllowanceService.available(user);
         AnalyzeResponseDto analysis = mlServiceClient.analyzeFile(
                 bytes, filename, tiers.topNFor(user.getRole()), tierFor(user), llmAllowed);
@@ -159,11 +159,12 @@ public class ResumeService {
     /**
      * Every version a user has uploaded, oldest first (FR-1.5) -- capped at
      * the {@link #FREE_HISTORY_LIMIT} most recent versions for USER-tier
-     * accounts (FR-6.2/FR-12.2); PREMIUM_USER and ADMIN see every version.
+     * accounts (FR-6.2/FR-12.2); PREMIUM_USER and ADMIN (and everyone in
+     * preview mode) see every version.
      */
     public List<Resume> listVersions(User user) {
         List<Resume> versions = resumeRepository.findByUserOrderByVersionAsc(user);
-        if (user.getRole() == UserRole.USER && versions.size() > FREE_HISTORY_LIMIT) {
+        if (!tiers.isPremium(user.getRole()) && versions.size() > FREE_HISTORY_LIMIT) {
             return versions.subList(versions.size() - FREE_HISTORY_LIMIT, versions.size());
         }
         return versions;
@@ -173,11 +174,11 @@ public class ResumeService {
      * The tier the ML service should analyse at for this user (FR-12.2):
      * USER accounts are {@code "free"} (deterministic template explanation,
      * AI engine metered by {@link AiAllowanceService}); PREMIUM_USER and
-     * ADMIN are {@code "premium"} (LLM coaching narrative, every domain
-     * unlimited). Package-private so the dashboard can report the same value.
+     * ADMIN -- and everyone in preview mode -- are {@code "premium"} (LLM
+     * coaching narrative, every domain unlimited).
      */
-    static String tierFor(User user) {
-        return user.getRole() == UserRole.USER ? "free" : "premium";
+    private String tierFor(User user) {
+        return tiers.tierFor(user.getRole());
     }
 
     /**
@@ -213,14 +214,18 @@ public class ResumeService {
     /**
      * Matches one of the user's resume versions against a pasted job
      * description (FR-8.1/8.2) using the skills and domain already extracted
-     * for it -- no re-parsing, no LLM. The controller restricts this to
-     * Premium accounts; nothing is persisted.
+     * for it -- no re-parsing, no LLM. Premium only (FR-12.2), which in
+     * preview mode means everyone; nothing is persisted.
      *
+     * @throws AccessDeniedException if the account doesn't get Premium right now (403)
      * @throws ResourceNotFoundException if the resume doesn't exist, doesn't belong to
      *         this user, or hasn't been analysed yet
      * @throws com.resumeanalyser.client.MlServiceException if the ML service call fails
      */
     public JdMatchResponse matchJobDescription(User user, UUID resumeId, String jdText) {
+        if (!tiers.isPremium(user.getRole())) {
+            throw new AccessDeniedException("JD match is a Premium feature");
+        }
         ParsedProfile profile = getParsedProfile(user, resumeId);
         JdMatchResponseDto match = mlServiceClient.matchJd(profile.getSkills(), jdText, profile.getDomain());
         JdMatchResponse.ClosestRole closest = match.closestRole() == null ? null

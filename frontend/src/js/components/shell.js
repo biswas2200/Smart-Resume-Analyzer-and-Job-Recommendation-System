@@ -1,9 +1,10 @@
 import { refreshCurrentUser } from '../api/auth-api.js';
 import { listVersions } from '../api/resume-api.js';
+import { getTierInfo } from '../api/tier-api.js';
 import { el, setText } from '../core/dom.js';
 import { clearSession, getUser } from '../core/session.js';
 import { initials, shortDate } from '../pages/insights.js';
-import { tierLabel } from '../pages/dashboard-rules.js';
+import { PREVIEW_MESSAGE, tierLabel } from '../pages/dashboard-rules.js';
 import { hydrateIcons, icon } from './icons.js';
 
 // The app shell shared by the signed-in pages (upload, dashboard): the sidebar with the
@@ -28,11 +29,14 @@ export function renderShell(active) {
   const user = getUser();
 
   const tier = el('span', { class: 'badge' });
-  const paintTier = (role) => {
-    setText(tier, tierLabel(role));
-    tier.className = `badge ${role === 'USER' ? '' : 'badge-blue'}`.trim();
+  let role = user?.role;
+  let previewMode = false;
+  const paintTier = () => {
+    const label = tierLabel(role, previewMode);
+    setText(tier, label);
+    tier.className = `badge ${label === 'Free' ? '' : 'badge-blue'}`.trim();
   };
-  paintTier(user?.role);
+  paintTier();
 
   const nav = el(
     'nav',
@@ -83,7 +87,23 @@ export function renderShell(active) {
   hydrateIcons();
 
   // The stored role goes stale after an admin upgrade; refresh it quietly.
-  refreshCurrentUser().then((fresh) => paintTier(fresh.role), () => undefined);
+  refreshCurrentUser().then(
+    (fresh) => {
+      role = fresh.role;
+      paintTier();
+    },
+    () => undefined,
+  );
+  getTierInfo().then(
+    (info) => {
+      previewMode = info?.previewMode === true;
+      paintTier();
+      if (previewMode) {
+        showPreviewBanner();
+      }
+    },
+    () => undefined,
+  );
 
   return listVersions().then(
     (versions) => {
@@ -164,3 +184,12 @@ export const BRAND_SVG =
   '<path d="M11 7.5h7.2l4.3 4.3V24a1 1 0 0 1-1 1H11a1 1 0 0 1-1-1V8.5a1 1 0 0 1 1-1z" fill="#fff"/>' +
   '<path d="M18.2 7.5v4.3h4.3z" fill="#c7d2fe"/>' +
   '<path d="M13 15.5h6.5M13 19h4.5" stroke="#3b5bdb" stroke-width="1.7" stroke-linecap="round"/></svg>';
+
+/** The "Preview" strip above the page header (once per page). */
+function showPreviewBanner() {
+  const main = document.querySelector('.main');
+  if (!main || main.querySelector('.preview-banner')) {
+    return;
+  }
+  main.prepend(el('p', { class: 'alert alert-info preview-banner', role: 'status' }, icon('sparkle'), PREVIEW_MESSAGE));
+}

@@ -55,8 +55,11 @@ Resume parsing runs fully offline by default (a local NER model, no
 credentials or network call needed) -- see `PARSER_BACKEND` in `.env.example`.
 The model is our fine-tune of `yashpwr/resume-ner-bert` (run 1's teacher,
 `training/RESULTS.md`), loaded from `models/ner/teacher-run1` and pinned by the
-SHA-256 of its weights. Fetch it, and the smaller distilled student, with
-`scripts/fetch_ner_models.sh`.
+SHA-256 of its weights. When that folder is missing, the service downloads it
+at start-up from the project bucket (`NER_MODEL_GCS_URI`, read with ADC) and
+refuses to start unless the weights match the pin. To fetch it by hand, with
+the smaller distilled student, run `scripts/fetch_ner_models.sh`. The public
+copies on Hugging Face (`training/PUBLISH-HF.md`) are not used by the app.
 Only the Premium paths (the LLM coaching narrative in `explainer.py`, and
 LLM extraction when `PARSER_BACKEND=llm`) call an LLM -- Gemini on Vertex AI,
 authenticated with **Google Application Default Credentials**. There is no

@@ -84,10 +84,15 @@ export function canMatchJd(dashboard) {
   return dashboard.userTier === 'premium' && !!dashboard.resumeId;
 }
 
-/** Header badge text for a `UserRole` (`USER` | `PREMIUM_USER` | `ADMIN`). */
-export function tierLabel(role) {
-  if (role === 'USER') {
-    return 'Free';
+/**
+ * Header badge text for a `UserRole` (`USER` | `PREMIUM_USER` | `ADMIN`). In preview mode a
+ * USER account gets Premium too, so it is labelled that way.
+ */
+export function tierLabel(role, previewMode = false) {
+  if (role === 'ADMIN') {
+    return 'Admin';
   }
-  return role === 'ADMIN' ? 'Admin' : 'Premium';
+  return role === 'USER' && !previewMode ? 'Free' : 'Premium';
 }
+
+export const PREVIEW_MESSAGE = 'Preview';

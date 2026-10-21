@@ -57,7 +57,7 @@ def calls(monkeypatch) -> Calls:
     monkeypatch.setattr(pipeline, "parse_resume", fake_parse)
     monkeypatch.setattr(pipeline.matcher, "match_roles", fake_match)
     monkeypatch.setattr(pipeline, "explain_results", fake_explain)
-    monkeypatch.setattr(pipeline.ats_score, "score_resume", lambda text: ATS)
+    monkeypatch.setattr(pipeline.ats_score, "score_resume", lambda text, hidden_word_count=0: ATS)
     monkeypatch.setattr(pipeline, "find_skills", lambda text, path=None: [])
     monkeypatch.setattr(pipeline.gap_analysis, "analyze_gaps",
                         lambda matches: [GapAnalysis(role=m.role, missing_skills=m.missing_skills) for m in matches])
