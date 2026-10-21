@@ -25,7 +25,7 @@ public class OpenApiConfig {
     public OpenAPI resumeAnalyserOpenApi() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Smart Resume Analyser API")
+                        .title("Coverlay API")
                         .description("Auth, resume upload/versioning, recommendations, feedback, and the skill-vector store.")
                         .version("v1"))
                 .components(new Components()

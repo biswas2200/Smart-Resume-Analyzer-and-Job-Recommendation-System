@@ -1,4 +1,4 @@
-# Smart Resume Analyser and Job Recommendation System
+# Coverlay
 
 A **Career OS for every job domain**: an AI-assisted resume analyser and career
 recommendation system, built with a deterministic core (domain detection, ATS

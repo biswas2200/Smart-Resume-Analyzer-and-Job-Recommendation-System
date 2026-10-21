@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS)
 
-> Project: Intelligent Resume Analyser and Career Recommendation System
+> Project: Coverlay
 > Document version: 2.0 · Date: 2026-09-10 · Status: Active; supersedes v1.0 (2026-08-28)
 > Prepared by: Amitosh Biswas and development team, MCA, Nitte Meenakshi Institute of Technology (NMIT), Bengaluru
 
@@ -10,7 +10,7 @@ This is the markdown successor of the v1.0 Word document. Section numbering and 
 ## 1. Introduction
 
 ### 1.1 Purpose
-This SRS defines the functional and non-functional requirements for the Intelligent Resume Analyser and Career Recommendation System ("the System"). It is the authoritative reference for design, implementation, and testing, and a supporting document for academic evaluation. v2.0 extends v1.0 with the cloud tiers (Web Free, Web Premium on Google Cloud Platform), the result-parity/determinism guarantee, and the cloud model training and release process. The standalone offline self-hosted distribution is archived in [`docs/archive/community-edition.md`](archive/community-edition.md).
+This SRS defines the functional and non-functional requirements for Coverlay ("the System"). It is the authoritative reference for design, implementation, and testing, and a supporting document for academic evaluation. v2.0 extends v1.0 with the cloud tiers (Web Free, Web Premium on Google Cloud Platform), the result-parity/determinism guarantee, and the cloud model training and release process. The standalone offline self-hosted distribution is archived in [`docs/archive/community-edition.md`](archive/community-edition.md).
 
 ### 1.2 Scope
 The System is a candidate-facing resume analyser delivered as a cloud platform hosted on Google Cloud Platform (GCP) with two tiers:

@@ -14,7 +14,7 @@
     <groupId>com.resumeanalyser</groupId>
     <artifactId>backend</artifactId>
     <version>0.1.0-SNAPSHOT</version>
-    <name>Smart Resume Analyser Backend</name>
+    <name>Coverlay Backend</name>
     <description>Spring Boot backend: auth, orchestration, and the temporal skill-vector store</description>
 
     <properties>

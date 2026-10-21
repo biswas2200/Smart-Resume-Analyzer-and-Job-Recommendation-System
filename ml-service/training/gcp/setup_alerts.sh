@@ -81,7 +81,7 @@ create_policy "Data work: labelling report" << 'EOF'
   "notificationChannels": ["__CHANNEL__"],
   "documentation": {
     "mimeType": "text/markdown",
-    "subject": "[Resume Analyzer] Labelling run ${log.extracted_label.headline}",
+    "subject": "[Coverlay] Labelling run ${log.extracted_label.headline}",
     "content": "**Labelling run ${log.extracted_label.headline}**\n\n- **Run:** ${log.extracted_label.run}\n- **Quality:** ${log.extracted_label.quality}\n- **Entities by label:** ${log.extracted_label.labels}\n- **Budget:** ${log.extracted_label.budget}\n- **Next:** ${log.extracted_label.next}\n\nFull log and this report: gs://__BUCKET__/labelled/ (run.log, REPORT.json)"
   }
 }
@@ -101,7 +101,7 @@ create_policy "Data work: data-prep VM stopped" << 'EOF'
   "notificationChannels": ["__CHANNEL__"],
   "documentation": {
     "mimeType": "text/markdown",
-    "subject": "[Resume Analyzer] data-prep VM stopped",
+    "subject": "[Coverlay] data-prep VM stopped",
     "content": "The data-prep VM has stopped, so it no longer bills for compute (its disk still does, under $1 a month). A labelling report should arrive in its own email; if none does, check gs://__BUCKET__/labelled/DONE and run.log."
   }
 }
@@ -127,7 +127,7 @@ create_policy "Data work: catalogue report" << 'EOF'
   "notificationChannels": ["__CHANNEL__"],
   "documentation": {
     "mimeType": "text/markdown",
-    "subject": "[Resume Analyzer] Role catalogue rebuild ${log.extracted_label.headline}",
+    "subject": "[Coverlay] Role catalogue rebuild ${log.extracted_label.headline}",
     "content": "**Role catalogue rebuild ${log.extracted_label.headline}**\n\n- **Results** (new build vs the app's current catalogue): ${log.extracted_label.results}\n- **Files:** ${log.extracted_label.where} (compare.md per input, run.log)\n- **Next:** ${log.extracted_label.next}"
   }
 }

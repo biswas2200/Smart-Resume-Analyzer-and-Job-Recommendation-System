@@ -1,6 +1,6 @@
 # Model Training & Fine-Tuning on Google Cloud Platform (GCP)
 
-> **Purpose:** Setup and execution guide for training, fine-tuning, and distilling models for the Intelligent Resume Analyser using GCP cloud compute resources (e.g., Compute Engine GPU VM or Vertex AI Workbench).
+> **Purpose:** Setup and execution guide for training, fine-tuning, and distilling models for Coverlay using GCP cloud compute resources (e.g., Compute Engine GPU VM or Vertex AI Workbench).
 
 ---
 

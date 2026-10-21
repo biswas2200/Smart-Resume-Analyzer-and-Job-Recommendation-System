@@ -1,4 +1,4 @@
-# Intelligent Resume Analyser and Career Recommendation System: documentation
+# Coverlay: documentation
 
 An AI-assisted resume analyser and career recommendation system. Its core engine is deterministic: local NER extraction, taxonomy normalization, embedding-based skill-to-role matching and rule-based ATS scoring. An LLM is used in two optional places, a coaching narrative in the Premium tier and an opt-in extraction path. It never rewrites resumes and never produces a score.
 

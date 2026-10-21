@@ -10,7 +10,7 @@ flowchart LR
     Admin["System Administrator"]
     LLM["Google Vertex AI (Gemini 2.5 Flash Lite)\n(Premium narrative / non-eng extraction)"]
 
-    SYS(("0\nIntelligent Resume Analyser\nand Career Recommendation System"))
+    SYS(("0\nCoverlay"))
 
     Candidate -->|PDF resume, feedback, JD text| SYS
     SYS -->|profile, matches, gaps, ATS score,\nexplanation, engine_fingerprint| Candidate

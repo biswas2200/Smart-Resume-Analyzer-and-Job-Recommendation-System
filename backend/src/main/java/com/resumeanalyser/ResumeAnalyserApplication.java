@@ -4,7 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * Entry point for the Smart Resume Analyser backend.
+ * Entry point for the Coverlay backend.
  * Boots the Spring application context, which wires up every module
  * (account, auth, resume, recommendation, feedback, skillvector, common)
  * found under the com.resumeanalyser package.
