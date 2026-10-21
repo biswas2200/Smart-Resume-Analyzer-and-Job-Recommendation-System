@@ -38,9 +38,10 @@ In Docker Compose, the `frontend` service is plain nginx serving `src/` on port 
 
 | Page | What it shows |
 |---|---|
-| `index.html` | Public landing page: what the app does, features, Free and Premium. |
+| `index.html` | Public landing page: what the app does, features, Free and Premium (with a "free during the preview" note while `GET /tiers` says `previewMode`). |
 | `login.html`, `register.html` | Sign in and create an account. A new account goes straight to the analyzer. |
 | `upload.html` | **Resume analyzer.** Left: the resume as we read it (or the original PDF, for a file chosen in this browser) and the file card for uploading a new version. Right: the parsing result (name, email, phone, skills, experience, education) for the version picked in the version menu. `?resume=<id>` opens a given version. |
+| *(every signed-in page)* | While `GET /tiers` reports `previewMode`, `shell.js` shows a "free during the preview" banner above the header and labels a free account Premium. The backend already treats every account as Premium then, so no upgrade prompt appears. |
 | `dashboard.html` | **Dashboard**, in three tabs driven by the hash. `#overview`: ATS score and band, detected field, best match, every ATS check with its points and how to fix it, the suggestions (Premium: written by AI) and up to three next steps. `#matches`: ranked roles with the skills you have and the ones to add, a "New" badge for roles not shown before, and helpful/not-helpful feedback; a locked card takes their place when the field needs the AI engine and this analysis could not use it. `#jd`: the Premium job-description match. |
 
 ## Layout

@@ -18,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -70,10 +71,48 @@ class ResumeServiceTest {
 
     @BeforeEach
     void setUp() {
-        TierProperties tiers = new TierProperties(new TierProperties.Free(3, 3), new TierProperties.Premium(5));
-        resumeService = new ResumeService(
+        resumeService = serviceWithPreviewMode(false);
+    }
+
+    private ResumeService serviceWithPreviewMode(boolean previewMode) {
+        TierProperties tiers = new TierProperties(new TierProperties.Free(3, 3), new TierProperties.Premium(5), previewMode);
+        return new ResumeService(
                 resumeRepository, parsedProfileRepository, storageService, mlServiceClient, recommendationService,
                 aiAllowanceService, tiers);
+    }
+
+    @Test
+    void upload_analysesAFreeAccountAtThePremiumTier_inPreviewMode_andNeverChargesIt() {
+        ResumeService preview = serviceWithPreviewMode(true);
+        User user = userWithRole(UserRole.USER);
+        stubSuccessfulUpload(user);
+        when(mlServiceClient.analyzeFile(any(), anyString(), anyInt(), anyString(), anyBoolean()))
+                .thenReturn(aiAnalysis(true));
+
+        preview.upload(user, fakeFile());
+
+        verify(mlServiceClient).analyzeFile(any(), anyString(), eq(5), eq("premium"), eq(true));
+        verify(aiAllowanceService, never()).available(any());
+        verify(aiAllowanceService, never()).consume(any());
+    }
+
+    @Test
+    void listVersions_returnsEveryVersion_forAUserTierAccount_inPreviewMode() {
+        User user = userWithRole(UserRole.USER);
+        when(resumeRepository.findByUserOrderByVersionAsc(user)).thenReturn(resumesWithVersions(1, 2, 3, 4, 5));
+
+        List<Resume> result = serviceWithPreviewMode(true).listVersions(user);
+
+        assertThat(result).extracting(Resume::getVersion).containsExactly(1, 2, 3, 4, 5);
+    }
+
+    @Test
+    void matchJobDescription_isDeniedToAFreeAccount_outsidePreviewMode() {
+        User user = userWithRole(UserRole.USER);
+
+        assertThatThrownBy(() -> resumeService.matchJobDescription(user, UUID.randomUUID(), "Java, SQL"))
+                .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(mlServiceClient);
     }
 
     @Test

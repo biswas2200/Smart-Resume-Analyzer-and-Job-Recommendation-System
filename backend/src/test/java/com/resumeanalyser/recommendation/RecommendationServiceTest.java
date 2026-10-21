@@ -1,6 +1,7 @@
 package com.resumeanalyser.recommendation;
 
 import com.resumeanalyser.account.AiAllowanceService;
+import com.resumeanalyser.account.TierProperties;
 import com.resumeanalyser.account.User;
 import com.resumeanalyser.client.dto.RoleMatchDto;
 import com.resumeanalyser.resume.ParsedProfileRepository;
@@ -58,7 +59,8 @@ class RecommendationServiceTest {
     void setUp() {
         recommendationService = new RecommendationService(
                 roleRepository, recommendationRepository, resumeRepository, parsedProfileRepository,
-                skillVectorService, aiAllowanceService);
+                skillVectorService, aiAllowanceService,
+                new TierProperties(new TierProperties.Free(3, 3), new TierProperties.Premium(5), false));
     }
 
     @Test

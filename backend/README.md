@@ -9,6 +9,7 @@ recommendations and feedback.
 | Module | Endpoints | Notes |
 |---|---|---|
 | `auth` | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | Stateless JWT, bcrypt passwords, RBAC roles; `/me` reads the role fresh from the database so an upgrade is visible immediately. Emails in `APP_ADMIN_EMAILS` become ADMIN on register/login |
+| `account` | `GET /tiers` (public) | Tier limits (`app.tiers.*`) and the AI allowance. `/tiers` reports `previewMode`; while it is on, every Premium check (`TierProperties.isPremium`) passes for every account |
 | `admin` | `GET /admin/users?email=`, `PATCH /admin/users/{id}/role` (ADMIN only) | The MVP's upgrade path — no payments, an admin sets `USER` / `PREMIUM_USER` / `ADMIN` |
 | `resume` | `POST /resumes`, `GET /resumes`, `GET /resumes/{id}/profile`, `POST /resumes/{id}/reanalyze` | Validates + stores the file (PDF or DOCX), calls the ML service's `POST /analyze-file?tier=free\|premium` once per upload; `reanalyze` re-reads the stored file and re-runs it at the account's current tier (how a new Premium account unlocks a locked domain) |
 | `recommendation` | `GET /recommendations/dashboard` | Composite read view assembled from the latest resume's persisted analysis: detected domain, ATS score, roles (or a lock with `lockReason`), explanation, the user's tier |
@@ -52,6 +53,7 @@ Key environment variables (see `src/main/resources/application.yml` for every de
 | `OBJECT_STORAGE_BUCKET` | `resumes` | Bucket resume files are stored in (created on startup if missing) |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origin(s) the frontend is served from |
 | `APP_ADMIN_EMAILS` | *(empty)* | Comma-separated emails promoted to ADMIN on register/login — the bootstrap for the first administrator |
+| `PREVIEW_MODE` | `true` | 0.x preview: every account gets Premium and the UI shows a "free during the preview" banner. Set `false` to bring back Free/Premium (roles are never changed) |
 
 ## Logging
 

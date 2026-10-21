@@ -1,8 +1,8 @@
 package com.resumeanalyser.recommendation;
 
 import com.resumeanalyser.account.AiAllowanceService;
+import com.resumeanalyser.account.TierProperties;
 import com.resumeanalyser.account.User;
-import com.resumeanalyser.account.UserRole;
 import com.resumeanalyser.client.dto.RoleMatchDto;
 import com.resumeanalyser.common.ResourceNotFoundException;
 import com.resumeanalyser.recommendation.dto.DashboardResponse;
@@ -33,6 +33,7 @@ public class RecommendationService {
     private final ParsedProfileRepository parsedProfileRepository;
     private final SkillVectorService skillVectorService;
     private final AiAllowanceService aiAllowanceService;
+    private final TierProperties tiers;
 
     public RecommendationService(
             RoleRepository roleRepository,
@@ -40,7 +41,8 @@ public class RecommendationService {
             ResumeRepository resumeRepository,
             ParsedProfileRepository parsedProfileRepository,
             SkillVectorService skillVectorService,
-            AiAllowanceService aiAllowanceService
+            AiAllowanceService aiAllowanceService,
+            TierProperties tiers
     ) {
         this.roleRepository = roleRepository;
         this.recommendationRepository = recommendationRepository;
@@ -48,6 +50,7 @@ public class RecommendationService {
         this.parsedProfileRepository = parsedProfileRepository;
         this.skillVectorService = skillVectorService;
         this.aiAllowanceService = aiAllowanceService;
+        this.tiers = tiers;
     }
 
     /**
@@ -168,7 +171,7 @@ public class RecommendationService {
                 roleRecommendations,
                 profile.isRecommendationsLocked(),
                 profile.getLockReason(),
-                user.getRole() == UserRole.USER ? "free" : "premium",
+                tiers.tierFor(user.getRole()),
                 aiAllowanceService.status(user),
                 profile.getExplanation(),
                 profile.getExplanationSource()));

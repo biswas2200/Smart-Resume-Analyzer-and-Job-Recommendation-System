@@ -68,5 +68,7 @@ test('tierLabel and asPercent', () => {
   assert.equal(tierLabel('USER'), 'Free');
   assert.equal(tierLabel('PREMIUM_USER'), 'Premium');
   assert.equal(tierLabel('ADMIN'), 'Admin');
+  assert.equal(tierLabel('USER', true), 'Premium', 'preview mode gives a free account Premium');
+  assert.equal(tierLabel('ADMIN', true), 'Admin');
   assert.equal(asPercent(0.876), 88);
 });

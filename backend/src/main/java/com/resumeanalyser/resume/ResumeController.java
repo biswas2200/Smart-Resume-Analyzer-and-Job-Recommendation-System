@@ -13,7 +13,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import jakarta.validation.Valid;
@@ -87,11 +86,12 @@ public class ResumeController {
     /**
      * Premium (FR-8.1/8.2, FR-12.2): scores one of the signed-in user's resume
      * versions against a pasted job description -- matched and missing JD
-     * skills plus the closest catalogue role. Free accounts get 403; the
-     * dashboard shows them an upgrade prompt instead of the form.
+     * skills plus the closest catalogue role. Free accounts get 403 from
+     * {@link ResumeService#matchJobDescription} (not a role check here, so
+     * preview mode can open it to everyone); the dashboard shows them an
+     * upgrade prompt instead of the form.
      */
     @PostMapping("/{id}/jd-match")
-    @PreAuthorize("hasAnyRole('PREMIUM_USER', 'ADMIN')")
     public JdMatchResponse matchJobDescription(
             @PathVariable UUID id,
             @Valid @RequestBody JdMatchRequest request,
