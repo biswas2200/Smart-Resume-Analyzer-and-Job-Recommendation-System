@@ -142,6 +142,18 @@ def test_email_falls_back_to_ner_span_when_regex_finds_none():
     assert profile.email == "jane.doe@example.com"
 
 
+def test_phone_regex_reads_indian_numbers_written_in_two_groups_of_five():
+    for written in ("+91 98765 43210", "98765-43210", "+91 9876543210", "9876543210"):
+        profile = _entities_to_profile([], f"Priya Sharma\n{written} | Bengaluru")
+
+        assert profile.phone == written
+
+
+def test_phone_regex_still_reads_us_style_numbers_and_skips_years():
+    assert _entities_to_profile([], "Call +1 (555) 123-4567").phone == "+1 (555) 123-4567"
+    assert _entities_to_profile([], "B.Tech (2016 - 2020), Jun 2022 - Present").phone == ""
+
+
 def test_experience_duration_filled_from_nearby_date_range():
     entities = [_entity("Designation", "Software Engineer"), _entity("Companies worked at", "Acme Corp")]
     full_text = "Software Engineer at Acme Corp, Jan 2020 - Mar 2022"

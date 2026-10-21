@@ -13,6 +13,7 @@ from typing import NamedTuple
 
 from app.config import get_settings
 from app.models.schemas import AtsScoreResponse, DomainDetection, GapAnalysis, ResumeProfile, RoleMatch
+from app.services.ats_score import MIN_WORD_COUNT
 from app.services.llm_client import LLMClient, get_llm_client
 
 log = logging.getLogger(__name__)
@@ -91,6 +92,19 @@ LOCKED_MESSAGES = {
         "-- try again tomorrow, or upgrade to Premium, which is not limited."
     ),
 }
+# What to do about each failed ATS check (ats_score.BASE_CHECK_WEIGHTS), in
+# the user's words -- the check names themselves are identifiers, not copy.
+# A check added later without an entry here falls back to its name with the
+# underscores spaced out, never to a raw identifier.
+_CHECK_ADVICE = {
+    "contact_email": "add an email address",
+    "contact_phone": "add a phone number",
+    "section_experience": "add an Experience section",
+    "section_education": "add an Education section",
+    "section_skills": "add a Skills section",
+    "sufficient_length": f"add more detail, since your resume is shorter than {MIN_WORD_COUNT} words",
+}
+
 _DEFAULT_LOCKED_MESSAGE = (
     "Your resume reads as {domain}. Role recommendations and skill gaps for this "
     "field are not available on this analysis."
@@ -114,12 +128,14 @@ def render_template(
     request could not use it) the role lines are replaced by one sentence
     saying why, chosen by `lock_reason` (LOCKED_MESSAGES).
     """
-    failed_checks = [c.name for c in ats_score.checks if not c.passed]
+    advice = [
+        _CHECK_ADVICE.get(c.name, c.name.replace("_", " ")) for c in ats_score.checks if not c.passed
+    ]
     lines = [
         f"Your ATS compatibility score is {ats_score.score:g}/{ats_score.max_score:g}."
         + (
-            f" Consider addressing: {', '.join(failed_checks)}."
-            if failed_checks
+            f" To raise it: {'; '.join(advice)}."
+            if advice
             else " All checked ATS factors passed."
         )
     ]
@@ -133,7 +149,7 @@ def render_template(
         top = matches[0]
         matched = ", ".join(top.matched_skills) if top.matched_skills else "no skills in common yet"
         lines.append(
-            f"Your top recommended role is {top.role} (match score {top.score:g}), "
+            f"Your top recommended role is {top.role} ({round(top.score * 100)}% match), "
             f"based on matched skills: {matched}."
         )
 

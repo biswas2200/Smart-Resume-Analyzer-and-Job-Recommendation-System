@@ -33,6 +33,16 @@ EXPLAIN_LIMIT = 5
 
 _SPACE_RUN = re.compile(r"[ \t\f\v]+")
 
+# All-domain taxonomy entries (built from LinkedIn postings) that are also
+# everyday job-ad words: "we are hiring", "design and build", "diversity,
+# equity and inclusion", "competitive compensation". In a JD they are almost
+# always that boilerplate rather than a requirement, so they are not counted
+# as skills the JD asks for. Engineering-taxonomy hits are never filtered,
+# and resumes are unaffected.
+_JD_BOILERPLATE_SKILLS = frozenset(
+    {"Hiring", "Design", "Inclusion", "Equity", "Compensation", "Recognition", "Trust"}
+)
+
 
 def extract_jd_skills(jd_text: str) -> list[str]:
     """Canonical skills a job description asks for: dictionary hits against
@@ -43,7 +53,8 @@ def extract_jd_skills(jd_text: str) -> list[str]:
     candidate's side in match_jd(), so the two sets compare like with like.
     """
     text = _SPACE_RUN.sub(" ", jd_text)
-    hits = [*find_skills(text, TAXONOMY_PATH), *find_skills(text, GENERAL_TAXONOMY_PATH)]
+    general = [s for s in find_skills(text, GENERAL_TAXONOMY_PATH) if s not in _JD_BOILERPLATE_SKILLS]
+    hits = [*find_skills(text, TAXONOMY_PATH), *general]
     return normalize_skills(hits, include_general=True)
 
 
