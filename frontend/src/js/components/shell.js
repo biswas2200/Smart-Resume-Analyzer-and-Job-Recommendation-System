@@ -7,7 +7,7 @@ import { initials, shortDate } from '../pages/insights.js';
 import { PREVIEW_MESSAGE, tierLabel } from '../pages/dashboard-rules.js';
 import { hydrateIcons, icon } from './icons.js';
 
-// The app shell shared by the signed-in pages (upload, dashboard): the sidebar with the
+// The app shell shared by the signed-in pages (upload, dashboard, jobs, saved): the sidebar with the
 // account, the main navigation and the resume versions, plus the mobile drawer behaviour.
 // The page's HTML holds an empty <aside id="sidebar">, a #scrim and a #menu-button.
 
@@ -16,6 +16,8 @@ const NAV = [
   { key: 'resume', label: 'Resume analyzer', icon: 'file', href: 'upload.html' },
   { key: 'matches', label: 'Role matches', icon: 'target', href: 'dashboard.html#matches' },
   { key: 'jd', label: 'JD match', icon: 'briefcase', href: 'dashboard.html#jd' },
+  { key: 'jobs', label: 'Jobs for you', icon: 'search', href: 'jobs.html' },
+  { key: 'saved', label: 'Saved jobs', icon: 'bookmark', href: 'saved.html' },
 ];
 
 let versionList = null;

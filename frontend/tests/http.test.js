@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { API_BASE_URL } from '../src/js/config.js';
 import { ApiError } from '../src/js/core/api-error.js';
-import { get, post } from '../src/js/core/http.js';
+import { del, get, post, put } from '../src/js/core/http.js';
 import { getToken, saveSession } from '../src/js/core/session.js';
 
 // Minimal browser stand-ins: http.js only needs localStorage, location.replace and fetch.
@@ -96,4 +96,18 @@ test('a network failure rejects with status 0', async () => {
   } finally {
     console.error = originalError;
   }
+});
+
+test('put sends a JSON body with the token', async () => {
+  respondWith(200, { status: 'APPLIED' });
+  assert.deepEqual(await put('/jobs/j1/saved', { json: { status: 'APPLIED' } }), { status: 'APPLIED' });
+  assert.equal(calls[0].init.method, 'PUT');
+  assert.equal(calls[0].init.body, '{"status":"APPLIED"}');
+  assert.equal(calls[0].init.headers.Authorization, 'Bearer jwt-123');
+});
+
+test('del sends DELETE and resolves to null on 204', async () => {
+  respondWith(204);
+  assert.equal(await del('/jobs/j1/saved'), null);
+  assert.equal(calls[0].init.method, 'DELETE');
 });

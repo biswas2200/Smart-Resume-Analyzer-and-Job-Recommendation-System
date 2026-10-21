@@ -58,6 +58,8 @@ export async function request(method, path, { json, formData } = {}) {
 
 export const get = (path) => request('GET', path);
 export const post = (path, options) => request('POST', path, options);
+export const put = (path, options) => request('PUT', path, options);
+export const del = (path) => request('DELETE', path);
 
 async function readBody(response) {
   if (response.status === 204) {
