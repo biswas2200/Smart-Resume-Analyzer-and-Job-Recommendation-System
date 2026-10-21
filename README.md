@@ -50,7 +50,7 @@ account on GCP — plus `GOOGLE_CLOUD_PROJECT`. There is no API key anywhere.
 |---|---|---|
 | [`ml-service/`](ml-service/README.md) | Integrated | Python/FastAPI ML pipeline: parsing, skill normalization, embedding-based role matching, ATS scoring, gap analysis, explanations. |
 | [`backend/`](backend/README.md) | Integrated | Spring Boot API: auth + RBAC roles, resume upload/versioning (MinIO), ML-service orchestration, recommendation/feedback persistence, and the temporal (EMA) skill-vector update job (FR-7). |
-| [`frontend/`](frontend/README.md) | Integrated | Static web client (HTML + Bootstrap 5 + vanilla JavaScript, no build step): auth, resume upload, dashboard, and feedback all wired to the real backend. |
+| [`frontend/`](frontend/README.md) | Integrated | Static web client (HTML, one hand-written stylesheet, vanilla JavaScript, no build step), laid out as a clean dashboard: auth, resume analyzer with versions, ATS checks with fixes, role matches, feedback and Premium JD match, all wired to the real backend and checked end to end against it. |
 
 ## Running the full stack locally
 
@@ -126,7 +126,7 @@ mkdocs build --strict # broken links fail the build
 
 | Layer | Stack | Status |
 |---|---|---|
-| Frontend | HTML5, Bootstrap 5.3, vanilla JavaScript (ES modules, no build step); tests via `node --test` | Integrated — `frontend/` |
+| Frontend | HTML5, one hand-written CSS file (light and dark themes, no CSS framework), vanilla JavaScript (ES modules, no build step); tests via `node --test` | Integrated — `frontend/` |
 | Backend | Java 21, Spring Boot 3.x, Spring Security (JWT), PostgreSQL, Flyway | Integrated — `backend/` |
 | ML service | Python 3.12, FastAPI, `sentence-transformers` (`all-MiniLM-L6-v2`), Gemini on Vertex AI via ADC (Premium paths only; Groq optional) | Integrated — `ml-service/` |
 | Docs | MkDocs + Material, `docs/` + root `mkdocs.yml`, `mkdocs build --strict` | Done |

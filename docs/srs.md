@@ -101,7 +101,7 @@ A user can:
 | ML service / core engine | Python 3.12, FastAPI, ONNX Runtime (CPU) with PyTorch CPU fallback, sentence-transformers, transformers, pdfplumber |
 | Database | PostgreSQL 15+ |
 | Object storage | MinIO (S3-compatible) for uploaded resume files |
-| Frontend | HTML5, Bootstrap 5.3, vanilla JavaScript (ES modules, no build step); tests via `node --test` |
+| Frontend | HTML5, one hand-written CSS file (light and dark themes, no CSS framework), vanilla JavaScript (ES modules, no build step); tests via `node --test` |
 | LLM provider (Premium / opt-in only) | Gemini on Vertex AI (`gemini-2.5-flash-lite` by default; `gemini-2.5-flash` optional) authenticated with Google Application Default Credentials (no API key); Groq (`llama-3.3-70b-versatile`) optional via `LLM_PROVIDER=groq` |
 | Community Edition packaging | Docker multi-arch image (`linux/amd64`, `linux/arm64`), models and vector tables baked in, no runtime network |
 | Web deployment | Single Linux VM running Docker Compose (ml-service, backend, PostgreSQL, MinIO); demo target Hetzner CX23-class or GCP e2-medium-class |
@@ -189,7 +189,7 @@ Priority: Urgent
 ### 3.8 Job description (JD) matching
 Priority: Medium
 
-- FR-8.1 The system shall allow a user to paste a job description as free text (up to 20,000 characters). [Implemented (v2.3), Premium]: `POST /resumes/{id}/jd-match`, dashboard "Match to a job description" card; free accounts see an upgrade prompt.
+- FR-8.1 The system shall allow a user to paste a job description as free text (up to 20,000 characters). [Implemented (v2.3), Premium]: `POST /resumes/{id}/jd-match`, the dashboard's "JD match" tab; free accounts see a locked card explaining it is a Premium feature.
 - FR-8.2 The system shall compute a match score and list matched and missing skills between the candidate's stored profile and the pasted JD, deterministically and without an LLM: JD skills are dictionary matches against both taxonomies, `score = 0.6 × coverage + 0.4 × embedding similarity` (2 dp), plus the catalogue role the JD most resembles (`ml-service/app/services/jd_match.py`). Nothing is persisted. [Implemented (v2.3), Premium]
 
 ### 3.9 ATS compatibility score
@@ -343,7 +343,7 @@ flowchart TB
 
 | Layer | Responsibility |
 |---|---|
-| Client (HTML + Bootstrap + vanilla JS) | Upload, dashboard, JD match, feedback, Premium badges and page-level tier checks. |
+| Client (HTML + CSS + vanilla JS) | Upload, dashboard, JD match, feedback, Premium badges and page-level tier checks. |
 | Spring Boot Backend | JWT auth, RBAC and tier gating, orchestration, persistence, EMA update job, snapshot export. |
 | PostgreSQL + MinIO | Users, resume versions, profiles, roles, versioned skill vectors, recommendations, feedback; resume files. |
 | Core engine (Python) | Text extraction, segmentation, dictionary + NER extraction, normalization, vector lookup matching, ATS scoring, template explanation, engine fingerprint. |
@@ -435,6 +435,7 @@ The System is a student project and does not pursue formal certification. Sectio
 | Version | Date | Author | Description |
 |---|---|---|---|
 | 1.0 | 2026-08-28 | Amitosh Biswas | Initial SRS draft (Word document). |
+| 2.10 | 2026-10-21 | Amitosh Biswas | Frontend redesigned as a clean dashboard (commit 3c51f78, 2026-10-20), replacing the comic-book UI: sidebar with resume versions, resume analyzer, dashboard tabs (overview, role matches, JD match). Bootstrap is no longer used; the client is HTML, one hand-written stylesheet and vanilla JavaScript (§2.4, §6). Tested end to end against the real backend. FR-8.1 wording follows the new JD match tab. No API change. |
 | 2.9 | 2026-10-21 | Amitosh Biswas | Engine version 0.5.1, from the first end-to-end test of the new frontend: the local parser reads Indian mobile numbers written as two groups of five ("+91 98765 43210"); the template explanation names what to fix in plain words instead of check identifiers and shows the top match as a percentage; JD match no longer counts job-ad boilerplate ("hiring", "design", "equity", "inclusion", "compensation") as required skills; 17 common tools added to the engineering skill taxonomy (Kafka, Redis, GraphQL, FastAPI, Django, MongoDB and others). |
 | 2.8 | 2026-10-20 | Amitosh Biswas | Engine version 0.5.0: the local NER model is our fine-tune of `yashpwr/resume-ner-bert` (run 1 teacher, `ml-service/training/RESULTS.md`): field macro F1 84 % on DataTurks test (corrected key) and 90 % on 20 unseen LiveCareer resumes, against 76 % and 64 % for the upstream model. Loaded from a local directory, pinned by the SHA-256 of its weights. The distilled student (65M parameters, 81 % / 90 %) is kept as the smaller option. |
 | 2.7 | 2026-10-10 | Amitosh Biswas | Engine version 0.4.1: the local parser reports each NER entity's text exactly as written in the resume (from the entity's character offsets), instead of the model's rebuilt tokens, which put spaces around punctuation ("Technical Lead / Operations Manager" for "Technical Lead/Operations Manager"). |

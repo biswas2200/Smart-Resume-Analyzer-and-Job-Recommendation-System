@@ -6,7 +6,7 @@ Companion to [System Architecture](architecture.md), which explains why the syst
 
 | Layer | Responsibility | Status |
 |---|---|---|
-| Client (static multi-page web client: HTML + Bootstrap 5 + vanilla JS) | Upload, dashboard (profile, matches, gaps, ATS), feedback controls; Premium badges and page-level tier checks. No business logic. | Implemented; Premium page guard planned |
+| Client (static multi-page web client: HTML + one hand-written stylesheet + vanilla JS) | Resume analyzer (upload, versions, parsed profile), dashboard (ATS checks with fixes, role matches with gaps, Premium JD match), feedback controls; Premium badges and page-level tier checks. No business logic. | Implemented; Premium page guard planned |
 | Spring Boot backend | JWT auth, RBAC (`USER` / `PREMIUM_USER` / `ADMIN`), tier gating, orchestration (one ML call per upload), persistence, MinIO storage, EMA skill-vector job, weights snapshot export. | Implemented; gating + snapshot planned |
 | PostgreSQL + MinIO | Users, resume versions, parsed profiles (incl. ATS + explanation), roles, versioned skill vectors, recommendations, feedback; resume files. | Implemented (Flyway `V1`) |
 | Core engine / ML service | PDF extraction, section segmentation, dictionary + NER extraction, normalization, vector-table matching, ATS scoring, gap analysis, template explanation, engine fingerprint. Optional LLM narrative / extraction. | Implemented (current pipeline); restaging planned |

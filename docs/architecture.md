@@ -15,7 +15,7 @@ Three deployable services, all implemented, hosted on GCP:
 
 ```mermaid
 flowchart TB
-    subgraph Client["Client — Browser (HTML + Bootstrap + vanilla JS)"]
+    subgraph Client["Client — Browser (HTML + CSS + vanilla JS)"]
         UI["Web pages\n(Upload · Dashboard · Feedback · Tier badges)"]
     end
 
