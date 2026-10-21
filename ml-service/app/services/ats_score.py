@@ -31,6 +31,7 @@ BASE_CHECK_WEIGHTS = {
     "section_education": 15.0,
     "section_skills": 15.0,
     "sufficient_length": 10.0,
+    "no_hidden_text": 10.0,
 }
 KEYWORD_WEIGHT = 20.0
 
@@ -39,12 +40,17 @@ def _has_section(text_lower: str, header_variants: list[str]) -> bool:
     return any(variant in text_lower for variant in header_variants)
 
 
-def score_resume(resume_text: str, target_keywords: list[str] | None = None) -> AtsScoreResponse:
+def score_resume(
+    resume_text: str, target_keywords: list[str] | None = None, hidden_word_count: int = 0
+) -> AtsScoreResponse:
     """Run every rule-based check against resume_text and total their weights.
     When target_keywords is given, an extra "keyword_coverage" check is added
     on top of the base checks (and its weight added to max_score) -- omitted
     entirely otherwise, since without target keywords there's nothing to
-    check coverage against.
+    check coverage against. `hidden_word_count` is how many words the file
+    extractor left out as unreadable (document_extraction.ExtractedText);
+    real ATS tools flag hidden text as keyword stuffing, so any fails
+    "no_hidden_text". Text sent as JSON has no file to inspect, so it passes.
     """
     text_lower = resume_text.lower()
     checks: list[AtsCheck] = []
@@ -85,6 +91,15 @@ def score_resume(resume_text: str, target_keywords: list[str] | None = None) -> 
         detail=f"{word_count} words (minimum {MIN_WORD_COUNT})",
     ))
     earned += BASE_CHECK_WEIGHTS["sufficient_length"] if long_enough else 0.0
+
+    no_hidden_text = hidden_word_count == 0
+    checks.append(AtsCheck(
+        name="no_hidden_text",
+        passed=no_hidden_text,
+        detail="No hidden text found" if no_hidden_text
+        else f"{hidden_word_count} words of hidden text (white, tiny or off-page) were ignored",
+    ))
+    earned += BASE_CHECK_WEIGHTS["no_hidden_text"] if no_hidden_text else 0.0
 
     if target_keywords:
         matched_keywords = [kw for kw in target_keywords if kw.lower() in text_lower]

@@ -153,7 +153,7 @@ Complexity: O(k) embedding calls (still live, not table lookups until step 2) + 
 
 ## 5. ATS scoring rubric
 
-`ats_score.score_resume(resume_text, target_keywords)` runs independent, additive checks:
+`ats_score.score_resume(resume_text, target_keywords, hidden_word_count)` runs independent, additive checks:
 
 | Check | Weight | Method |
 |---|---|---|
@@ -163,6 +163,7 @@ Complexity: O(k) embedding calls (still live, not table lookups until step 2) + 
 | `section_education` | 15.0 | "education" / "academic background" |
 | `section_skills` | 15.0 | "skills" / "technical skills" / "core competencies" |
 | `sufficient_length` | 10.0 | ≥ 150 words |
+| `no_hidden_text` | 10.0 | Fails when the file extractor left out hidden words (white, under 3 pt or off-page text in a PDF; `document_extraction.ExtractedText.hidden_word_count`). Text sent as JSON has no file and passes |
 | `keyword_coverage` (optional) | 20.0 | Only when `target_keywords` non-empty; proportional credit; `passed` at ≥ 0.5 |
 
 Base `max_score` 90.0; +20.0 with keywords. Integer arithmetic; bit-identical everywhere.

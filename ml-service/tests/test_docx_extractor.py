@@ -29,7 +29,7 @@ def test_extract_reads_paragraphs_tables_and_headers_in_document_order():
     buffer = io.BytesIO()
     document.save(buffer)
 
-    text = DocxTextExtractor().extract(buffer.getvalue())
+    text = DocxTextExtractor().extract(buffer.getvalue()).text
 
     lines = text.split("\n")
     assert lines[:2] == ["Jane Doe", "Experience"]

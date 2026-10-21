@@ -41,3 +41,20 @@ def test_keyword_coverage_adds_to_max_score_only_when_provided():
     with_keywords = score_resume(GOOD_RESUME, target_keywords=["Python", "Kubernetes"])
     assert with_keywords.max_score == without_keywords.max_score + 20.0
     assert any(c.name == "keyword_coverage" for c in with_keywords.checks)
+
+
+def test_hidden_text_fails_its_check_and_costs_its_points():
+    clean = score_resume(GOOD_RESUME)
+    stuffed = score_resume(GOOD_RESUME, hidden_word_count=42)
+
+    check = next(c for c in stuffed.checks if c.name == "no_hidden_text")
+    assert check.passed is False
+    assert "42 words of hidden text" in check.detail
+    assert stuffed.score == clean.score - 10.0
+    assert stuffed.max_score == clean.max_score
+
+
+def test_text_with_no_hidden_words_passes_the_hidden_text_check():
+    check = next(c for c in score_resume(GOOD_RESUME).checks if c.name == "no_hidden_text")
+
+    assert check.passed is True

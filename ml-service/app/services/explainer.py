@@ -103,6 +103,7 @@ _CHECK_ADVICE = {
     "section_education": "add an Education section",
     "section_skills": "add a Skills section",
     "sufficient_length": f"add more detail, since your resume is shorter than {MIN_WORD_COUNT} words",
+    "no_hidden_text": "remove the hidden (white, tiny or off-page) text, which was ignored",
 }
 
 _DEFAULT_LOCKED_MESSAGE = (

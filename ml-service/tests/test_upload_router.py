@@ -10,18 +10,20 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.models.schemas import ResumeProfile
 from app.routers import upload
+from app.services.document_extraction.base import ExtractedText
 
 client = TestClient(app)
 
 
 class _FakeExtractor:
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, hidden_word_count: int = 0) -> None:
         self.text = text
+        self.hidden_word_count = hidden_word_count
         self.received_bytes: bytes | None = None
 
-    def extract(self, file_bytes: bytes) -> str:
+    def extract(self, file_bytes: bytes) -> ExtractedText:
         self.received_bytes = file_bytes
-        return self.text
+        return ExtractedText(self.text, self.hidden_word_count)
 
 
 def test_parse_file_returns_profile_from_extracted_text(monkeypatch):
@@ -76,11 +78,13 @@ def _sentinel_analysis() -> "AnalyzeResponse":
 
 
 def test_analyze_file_runs_the_pipeline_on_extracted_text_with_the_caller_tier(monkeypatch):
-    fake_extractor = _FakeExtractor("Jane Doe, Python developer")
+    fake_extractor = _FakeExtractor("Jane Doe, Python developer", hidden_word_count=7)
     calls: list[dict] = []
 
-    def fake_analyze_text(resume_text: str, top_n: int = 3, tier: str = "free", llm_allowed: bool = False):
-        calls.append({"resume_text": resume_text, "top_n": top_n, "tier": tier, "llm_allowed": llm_allowed})
+    def fake_analyze_text(resume_text: str, top_n: int = 3, tier: str = "free", llm_allowed: bool = False,
+                          hidden_word_count: int = 0):
+        calls.append({"resume_text": resume_text, "top_n": top_n, "tier": tier, "llm_allowed": llm_allowed,
+                      "hidden_word_count": hidden_word_count})
         return _sentinel_analysis()
 
     monkeypatch.setattr(upload, "get_extractor_for_filename", lambda filename: fake_extractor)
@@ -101,7 +105,7 @@ def test_analyze_file_runs_the_pipeline_on_extracted_text_with_the_caller_tier(m
     assert body["engine_fingerprint"]["engine_version"] == "0.3.0"
     assert fake_extractor.received_bytes == b"fake pdf bytes"
     assert calls == [{"resume_text": "Jane Doe, Python developer", "top_n": 2, "tier": "premium",
-                      "llm_allowed": True}]
+                      "llm_allowed": True, "hidden_word_count": 7}]
     assert body["ai_extraction_used"] is False
 
 
@@ -109,7 +113,8 @@ def test_analyze_file_defaults_to_the_free_tier_with_no_ai_allowance(monkeypatch
     fake_extractor = _FakeExtractor("text")
     seen: list[tuple] = []
 
-    def fake_analyze_text(resume_text: str, top_n: int = 3, tier: str = "free", llm_allowed: bool = False):
+    def fake_analyze_text(resume_text: str, top_n: int = 3, tier: str = "free", llm_allowed: bool = False,
+                          hidden_word_count: int = 0):
         seen.append((tier, llm_allowed))
         return _sentinel_analysis()
 
@@ -133,7 +138,8 @@ def test_analyze_file_rejects_an_unknown_tier(monkeypatch):
 def test_llm_unavailable_on_the_premium_path_is_a_503(monkeypatch):
     from app.services.llm_client import LLMUnavailableError
 
-    def unavailable(resume_text: str, top_n: int = 3, tier: str = "free", llm_allowed: bool = False):
+    def unavailable(resume_text: str, top_n: int = 3, tier: str = "free", llm_allowed: bool = False,
+                    hidden_word_count: int = 0):
         raise LLMUnavailableError("GOOGLE_CLOUD_PROJECT is not set")
 
     monkeypatch.setattr(upload, "get_extractor_for_filename", lambda filename: _FakeExtractor("text"))

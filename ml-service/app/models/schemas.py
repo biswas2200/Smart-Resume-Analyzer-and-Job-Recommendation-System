@@ -1,28 +1,50 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+
+
+def _capped_text(limit: int):
+    """A str field cut to `limit` characters instead of rejected: a parsed
+    profile comes from a parser or an LLM reading an uploaded file, and one
+    runaway field should shorten, not fail the whole analysis. The limits
+    sit under the backend's column sizes (V1__init_schema.sql: name 255,
+    email 320, phone 50, skill 255), so a profile always saves."""
+    return Annotated[str, AfterValidator(lambda value: value[:limit])]
+
+
+def _capped_list(limit: int):
+    """A list field cut to its first `limit` items, for the same reason."""
+    return AfterValidator(lambda items: items[:limit])
+
+
+ShortText = _capped_text(200)
+Skill = _capped_text(80)
 
 
 class ExperienceEntry(BaseModel):
-    title: str
-    organization: str = ""
-    duration: str = ""
-    description: str = ""
+    title: ShortText
+    organization: ShortText = ""
+    duration: ShortText = ""
+    description: _capped_text(2000) = ""
 
 
 class EducationEntry(BaseModel):
-    degree: str
-    institution: str = ""
-    year: str = ""
+    degree: ShortText
+    institution: ShortText = ""
+    year: ShortText = ""
 
 
 class ResumeProfile(BaseModel):
-    name: str = ""
-    email: str = ""
-    phone: str = ""
-    skills: list[str] = Field(default_factory=list)
-    experience: list[ExperienceEntry] = Field(default_factory=list)
-    education: list[EducationEntry] = Field(default_factory=list)
+    # validate_assignment: the pipeline replaces `skills` after parsing
+    # (normalisation, verification), and the caps must hold for that too.
+    model_config = ConfigDict(validate_assignment=True)
+
+    name: _capped_text(120) = ""
+    email: _capped_text(254) = ""
+    phone: _capped_text(40) = ""
+    skills: Annotated[list[Skill], _capped_list(150)] = Field(default_factory=list)
+    experience: Annotated[list[ExperienceEntry], _capped_list(30)] = Field(default_factory=list)
+    education: Annotated[list[EducationEntry], _capped_list(30)] = Field(default_factory=list)
 
 
 class ParseRequest(BaseModel):

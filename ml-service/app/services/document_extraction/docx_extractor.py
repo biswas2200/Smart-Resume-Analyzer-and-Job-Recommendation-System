@@ -14,17 +14,21 @@ recovered by walking the body element's children directly.
 import io
 from collections.abc import Iterable
 
+from app.services.document_extraction.base import ExtractedText
+
 
 class DocxTextExtractor:
-    """DocumentTextExtractor for .docx (Office Open XML) files."""
+    """DocumentTextExtractor for .docx (Office Open XML) files. Hidden-text
+    detection is PDF-only for now, so hidden_word_count is always 0 here.
+    """
 
-    def extract(self, file_bytes: bytes) -> str:
+    def extract(self, file_bytes: bytes) -> ExtractedText:
         # Imported lazily so python-docx only has to be importable when a DOCX
         # is actually uploaded, matching pdf_extractor's pattern.
         from docx import Document
 
         document = Document(io.BytesIO(file_bytes))
-        return _lines_to_text(_document_lines(document))
+        return ExtractedText(_lines_to_text(_document_lines(document)))
 
 
 def _document_lines(document) -> Iterable[str]:

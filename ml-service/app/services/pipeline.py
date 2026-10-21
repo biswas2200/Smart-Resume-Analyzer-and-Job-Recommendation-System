@@ -83,15 +83,20 @@ def _lock_reason(domain: DomainDetection, premium: bool, llm_allowed: bool) -> L
 
 
 def analyze_text(
-    resume_text: str, top_n: int = 3, tier: Tier = "free", llm_allowed: bool = False
+    resume_text: str,
+    top_n: int = 3,
+    tier: Tier = "free",
+    llm_allowed: bool = False,
+    hidden_word_count: int = 0,
 ) -> AnalyzeResponse:
     """Run the pipeline and, when it made any LLM calls, attach what they
     cost (AnalyzeResponse.llm_usage) and whether a paid extraction ran
     (ai_extraction_used) -- the latter is what the backend charges a free
-    account's allowance for."""
+    account's allowance for. `hidden_word_count` comes from the file
+    extractor and only feeds the ATS "no_hidden_text" check."""
     start = time.perf_counter()
     with ledger.request_scope() as llm_calls:
-        response = _analyze(resume_text, top_n, tier, llm_allowed)
+        response = _analyze(resume_text, top_n, tier, llm_allowed, hidden_word_count)
     if llm_calls:
         response.llm_usage = usage_summary(llm_calls)
         response.ai_extraction_used = any(
@@ -100,18 +105,20 @@ def analyze_text(
     # Outcome only -- never the resume text or anything parsed out of it.
     log.info(
         "analysis tier=%s domain=%s engine=%s confidence=%.2f ats=%.0f matches=%d locked=%s "
-        "explanation=%s llm_calls=%d ai_extraction=%s chars=%d in %.0fms",
+        "explanation=%s llm_calls=%d ai_extraction=%s chars=%d hidden_words=%d in %.0fms",
         tier, response.domain.domain, response.domain.engine, response.domain.confidence,
         response.ats_score.score, len(response.matches), response.lock_reason or False,
         response.explanation_source, len(llm_calls), response.ai_extraction_used,
-        len(resume_text), (time.perf_counter() - start) * 1000,
+        len(resume_text), hidden_word_count, (time.perf_counter() - start) * 1000,
     )
     return response
 
 
-def _analyze(resume_text: str, top_n: int, tier: Tier, llm_allowed: bool) -> AnalyzeResponse:
+def _analyze(
+    resume_text: str, top_n: int, tier: Tier, llm_allowed: bool, hidden_word_count: int = 0
+) -> AnalyzeResponse:
     domain = detect_domain(resume_text)
-    ats = ats_score.score_resume(resume_text)
+    ats = ats_score.score_resume(resume_text, hidden_word_count=hidden_word_count)
     premium = tier == "premium"
     lock_reason = _lock_reason(domain, premium, llm_allowed)
 
