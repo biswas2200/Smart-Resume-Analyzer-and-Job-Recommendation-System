@@ -51,9 +51,12 @@ chemical, ...) have their own `core_engineering` domain: the builder's
 the classifier's engineering fast path only counts *software* taxonomy skills,
 so a SolidWorks/ETAP/HYSYS resume never lands on the local pipeline.
 
-Resume parsing runs fully offline by default (a local NER model,
-`yashpwr/resume-ner-bert` pinned to `3ea6ecf`, no credentials or network call
-needed) -- see `PARSER_BACKEND` in `.env.example`.
+Resume parsing runs fully offline by default (a local NER model, no
+credentials or network call needed) -- see `PARSER_BACKEND` in `.env.example`.
+The model is our fine-tune of `yashpwr/resume-ner-bert` (run 1's teacher,
+`training/RESULTS.md`), loaded from `models/ner/teacher-run1` and pinned by the
+SHA-256 of its weights. Fetch it, and the smaller distilled student, with
+`scripts/fetch_ner_models.sh`.
 Only the Premium paths (the LLM coaching narrative in `explainer.py`, and
 LLM extraction when `PARSER_BACKEND=llm`) call an LLM -- Gemini on Vertex AI,
 authenticated with **Google Application Default Credentials**. There is no
@@ -129,6 +132,20 @@ python scripts/llm_cost_check.py path/to/resume.pdf  # your own files
 The estimates are list-price arithmetic, not billing -- confirm against the
 Cloud Billing report, and update `LLM_INPUT_USD_PER_1M`/`LLM_OUTPUT_USD_PER_1M`
 when the model changes.
+
+## Logging
+
+Every log line carries the request id the backend sends as `X-Request-Id`
+(a new one when it is missing), so one upload can be followed through the
+backend's and this service's logs: `grep <id>` in both. Each request writes an
+access line (method, path, status, duration) and each analysis one outcome
+line (tier, domain, engine, ATS score, number of matches, lock reason,
+explanation source, LLM calls, duration). Resume text, names, contact details
+and file names are never logged.
+
+`LOG_LEVEL` (default `INFO`; `DEBUG` adds per-step timings) and `LOG_FILE`
+(e.g. `logs/ml-service.log`, rotated at 10 MB) are set in `.env`. Run uvicorn
+with `--no-access-log` to drop its own access lines, which lack the id.
 
 ## API docs
 

@@ -11,6 +11,8 @@ import com.resumeanalyser.client.dto.ResumeProfileDto;
 import com.resumeanalyser.common.ResourceNotFoundException;
 import com.resumeanalyser.recommendation.RecommendationService;
 import com.resumeanalyser.resume.dto.JdMatchResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,6 +36,7 @@ import java.util.UUID;
 public class ResumeService {
 
     private static final long MAX_FILE_SIZE_BYTES = 5L * 1024 * 1024;
+    private static final Logger log = LoggerFactory.getLogger(ResumeService.class);
 
     /**
      * How many of a USER-tier account's most recent resume versions {@link
@@ -115,6 +118,16 @@ public class ResumeService {
         if (!premium && analysis.aiExtractionUsed()) {
             aiAllowanceService.consume(user);
         }
+        // Outcome only: ids, domain and scores, never resume content.
+        log.info("Analysis for user {}: tier={} domain={} engine={} ats={} matches={} locked={}{} aiExtraction={} explanation={}",
+                user.getId(), tierFor(user),
+                analysis.domain() == null ? null : analysis.domain().domain(),
+                analysis.domain() == null ? null : analysis.domain().engine(),
+                analysis.atsScore() == null ? null : analysis.atsScore().score(),
+                analysis.matches() == null ? 0 : analysis.matches().size(),
+                analysis.recommendationsLocked(),
+                analysis.lockReason() == null ? "" : " (" + analysis.lockReason() + ")",
+                analysis.aiExtractionUsed(), analysis.explanationSource());
         return analysis;
     }
 

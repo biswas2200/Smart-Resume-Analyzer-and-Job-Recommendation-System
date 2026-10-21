@@ -17,6 +17,18 @@ spring:
 server:
   port: ${PORT:8080}
 
+logging:
+  # Every line carries the request id (common.logging.RequestIdFilter), which
+  # is also sent to the ML service, so one request can be followed across both.
+  pattern:
+    level: "%5p [%X{requestId:-}]"
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.resumeanalyser: ${LOG_LEVEL:INFO}
+  # Set LOG_FILE (e.g. logs/backend.log) to also write a rolling file.
+  file:
+    name: ${LOG_FILE:}
+
 app:
   jwt:
     # NFR-2.4: production must set JWT_SECRET; this default is dev-only.

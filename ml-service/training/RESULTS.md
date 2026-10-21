@@ -174,9 +174,11 @@ clean. The licence questions are settled for this non-commercial project
 
 1. ~~Settle the licence questions in DATASETS.md.~~ Done 2026-10-10:
    non-commercial project, the models may ship.
-2. The choice is between run 1's `teacher` (most
-   accurate) and `student` (40 % smaller, 3 points lower on DataTurks). Pin
-   its revision and bump `engine_version`.
+2. ~~The choice is between run 1's `teacher` (most
+   accurate) and `student` (40 % smaller, 3 points lower on DataTurks).~~
+   Done 2026-10-20: the app serves run 1's `teacher` (engine 0.5.0, pinned by
+   the SHA-256 of its weights); the `student` is kept as the smaller option.
+   Both are fetched by `scripts/fetch_ner_models.sh`.
 3. Optional: oversample the DataTurks training resumes (experiment 3), after
    hand-labelling a fresh test set.
 

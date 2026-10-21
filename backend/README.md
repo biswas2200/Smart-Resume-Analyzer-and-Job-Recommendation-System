@@ -53,6 +53,20 @@ Key environment variables (see `src/main/resources/application.yml` for every de
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Origin(s) the frontend is served from |
 | `APP_ADMIN_EMAILS` | *(empty)* | Comma-separated emails promoted to ADMIN on register/login — the bootstrap for the first administrator |
 
+## Logging
+
+`common.logging.RequestIdFilter` gives each request an id (an incoming
+`X-Request-Id` when it is safe, otherwise a new UUID), returns it in the
+response header, adds it to every log line (`[id]` after the level) and passes
+it to the ML service, whose logs carry the same id. One access line per request
+(method, path, status, duration), one line per ML-service call, one outcome
+line per resume analysis, and `LoggingAspect`'s per-method timings. A 500's
+`traceId` is the request id. Bodies, tokens, passwords and resume content are
+never logged.
+
+`LOG_LEVEL` (app packages, default `INFO`), `LOG_LEVEL_ROOT` and `LOG_FILE`
+(e.g. `logs/backend.log`) are environment variables.
+
 ## Testing
 
 ```bash

@@ -2,9 +2,11 @@
 # later, the Community Edition (docs/editions-and-parity.md): parity is
 # structural because it is literally the same artifact.
 #
-# Models (resume NER, MiniLM) are downloaded on first use into HF_HOME; mount a
-# volume there (see docker-compose.yml) so they are fetched once, not on every
-# container start. Baking them into the image is a later step (ONNX export).
+# The trained resume NER model is mounted at /srv/models (docker-compose.yml;
+# fetch it with scripts/fetch_ner_models.sh). MiniLM is downloaded on first
+# use into HF_HOME; mount a volume there (see docker-compose.yml) so it is
+# fetched once, not on every container start. Baking the models into the
+# image is a later step (ONNX export).
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

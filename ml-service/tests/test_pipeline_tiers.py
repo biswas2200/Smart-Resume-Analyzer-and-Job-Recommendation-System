@@ -313,3 +313,15 @@ def test_llm_usage_is_attached_only_when_the_analysis_called_an_llm(monkeypatch,
     assert premium.llm_usage.calls == 1
     assert premium.llm_usage.details[0].purpose == "narrate"
     assert premium.llm_usage.estimated_cost_usd == pytest.approx(0.000885)
+
+
+def test_analysis_logs_its_outcome_but_not_the_resume(monkeypatch, calls, caplog):
+    monkeypatch.setattr(pipeline, "detect_domain", lambda text: ENGINEERING)
+    _forbid_llm(monkeypatch)
+
+    with caplog.at_level("INFO", logger="app.services.pipeline"):
+        pipeline.analyze_text("Jane Doe jane@example.com", tier="free")
+
+    line = caplog.records[-1].getMessage()
+    assert "domain=engineering" in line and "engine=local" in line and "matches=1" in line
+    assert "Jane" not in line and "jane@example.com" not in line

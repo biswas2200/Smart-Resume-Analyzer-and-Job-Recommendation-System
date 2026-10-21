@@ -1,5 +1,5 @@
 """Checks the NER training configuration against the models it names: the
-teacher must be the model the app serves, and the student must split text
+app must serve a pinned model trained from the training base, and the student must split text
 into exactly the teacher's tokens, or token-by-token distillation compares
 mismatched positions."""
 
@@ -9,11 +9,14 @@ from app.config import Settings
 from training.config import ner_config
 
 
-def test_teacher_is_the_model_and_revision_the_app_serves():
-    # Code defaults, not .env: the pinned values the 60 % / 64 % baselines were measured on.
+def test_app_serves_a_pinned_model_trained_from_the_training_base():
+    # Code defaults, not .env. Training starts from the upstream model (the
+    # 60 % / 64 % baselines); the app serves run 1's fine-tuned teacher,
+    # pinned by the SHA-256 of its weights.
     fields = Settings.model_fields
-    assert ner_config.base_model == fields["ner_model_name"].default
-    assert ner_config.base_model_revision == fields["ner_model_revision"].default
+    assert ner_config.base_model == "yashpwr/resume-ner-bert"
+    assert fields["ner_model_name"].default == "models/ner/teacher-run1"
+    assert len(fields["ner_model_revision"].default) == 64
 
 
 def _cached_tokenizer(repo: str, revision: str):

@@ -1,6 +1,6 @@
 """Local, zero-external-API resume parsing. Runs a resume-specialized NER
-model (yashpwr/resume-ner-bert, downloaded from Hugging Face once and
-cached locally by transformers) fully offline -- no API key, no outbound
+model (by default our fine-tune of yashpwr/resume-ner-bert, loaded from
+models/ner/teacher-run1; see Settings.ner_model_name) fully offline -- no API key, no outbound
 network call per request, no per-request cost. This is the default parsing
 backend (see Settings.parser_backend in app/config.py); parser.py falls back
 to the LLM-based path only when explicitly configured to.
@@ -14,11 +14,14 @@ inline, since the tradeoffs are the interesting/non-obvious part of this
 file.
 """
 
+import hashlib
+import logging
 import re
 from functools import lru_cache
+from pathlib import Path
 from typing import Callable
 
-from app.config import get_settings
+from app.config import SERVICE_DIR, get_settings
 from app.models.schemas import EducationEntry, ExperienceEntry, ResumeProfile
 from app.services.dictionary_skills import find_skills
 from app.services.normalizer import normalize_skills
@@ -29,6 +32,8 @@ from app.services.sectioner import split_sections
 # "score": float, "start": int, "end": int}. Kept as a plain dict (not a
 # TypedDict/dataclass) since we only ever read two of its keys here.
 NerEntity = dict
+
+logger = logging.getLogger(__name__)
 
 # "Degree"/"Designation" are anchors: each occurrence signals a new
 # education/experience record is starting (matches the common one-line/
@@ -165,13 +170,52 @@ def _get_ner_pipeline() -> Callable[[str], list[NerEntity]]:
     # that then became their own degree/company records.
     # revision= loads exactly the commit engine_fingerprint() hashes
     # (fingerprint.py); without it the fingerprint named a pinned revision
-    # while the pipeline silently loaded whatever was on "main".
+    # while the pipeline silently loaded whatever was on "main". A local
+    # directory has no commits, so its pin is the weights' SHA-256 instead.
+    local_dir = resolve_local_model_dir(settings.ner_model_name)
+    if local_dir is not None:
+        verify_local_model(local_dir, settings.ner_model_revision)
+        logger.info("Loading NER model from %s (sha256 %s)", local_dir, settings.ner_model_revision[:12])
+        return pipeline("token-classification", model=str(local_dir), aggregation_strategy="first")
+    logger.info("Loading NER model %s@%s", settings.ner_model_name, settings.ner_model_revision[:12])
     return pipeline(
         "token-classification",
         model=settings.ner_model_name,
         revision=settings.ner_model_revision,
         aggregation_strategy="first",
     )
+
+
+def resolve_local_model_dir(name: str) -> Path | None:
+    """The directory `name` refers to, if it is a saved model on disk (a
+    relative path is taken from ml-service/), else None for a hub id. A name
+    that looks like a path but does not exist raises, so a missing download
+    fails at start-up instead of silently querying the hub for "models/...".
+    """
+    path = Path(name)
+    if not path.is_absolute():
+        path = SERVICE_DIR / path
+    if path.is_dir():
+        return path
+    if name.startswith(("models/", "./", "/")):
+        raise FileNotFoundError(
+            f"NER model directory {path} not found. Run scripts/fetch_ner_models.sh first."
+        )
+    return None
+
+
+def verify_local_model(model_dir: Path, expected_sha256: str) -> None:
+    """Refuse weights other than the pinned ones: the engine fingerprint
+    names the pin, so loading anything else would make it lie."""
+    digest = hashlib.sha256()
+    with open(model_dir / "model.safetensors", "rb") as weights:
+        for block in iter(lambda: weights.read(1 << 20), b""):
+            digest.update(block)
+    actual = digest.hexdigest()
+    if actual != expected_sha256:
+        raise ValueError(
+            f"{model_dir}/model.safetensors has SHA-256 {actual}, but NER_MODEL_REVISION pins {expected_sha256}."
+        )
 
 
 def _with_source_text(entities: list[NerEntity], chunk: str) -> list[NerEntity]:

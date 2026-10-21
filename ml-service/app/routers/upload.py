@@ -5,6 +5,9 @@ below just extract text and then delegate to the exact same pipeline
 functions analyze.py's text-based endpoints use.
 """
 
+import logging
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException, UploadFile
 
 from app.models.schemas import AnalyzeResponse, ParseResponse, Tier
@@ -14,16 +17,25 @@ from app.services.document_extraction.registry import get_extractor_for_filename
 from app.services.parser import parse_resume
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 async def _extract_text(file: UploadFile) -> str:
     try:
         extractor = get_extractor_for_filename(file.filename or "")
     except UnsupportedDocumentTypeError as error:
+        log.warning("unsupported file type %r", _extension(file.filename))
         raise HTTPException(status_code=415, detail=str(error)) from error
 
     file_bytes = await file.read()
-    return extractor.extract(file_bytes)
+    text = extractor.extract(file_bytes)
+    # The extension and sizes only: a file name often carries the person's name.
+    log.info("extracted %d chars from a %s file of %d bytes", len(text), _extension(file.filename), len(file_bytes))
+    return text
+
+
+def _extension(filename: str | None) -> str:
+    return Path(filename or "").suffix.lower() or "(none)"
 
 
 @router.post("/parse-file", responses={415: {"description": "Unsupported file type"}})

@@ -1,7 +1,9 @@
 package com.resumeanalyser.common;
 
+import com.resumeanalyser.common.logging.RequestIdFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -99,7 +101,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(Exception e) {
-        String traceId = UUID.randomUUID().toString();
+        // The request id doubles as the trace id, so the one id a user quotes
+        // finds every log line for their request, not just this one.
+        String requestId = MDC.get(RequestIdFilter.MDC_KEY);
+        String traceId = requestId != null ? requestId : UUID.randomUUID().toString();
         log.error("Unhandled exception, traceId={}", traceId, e);
 
         return ResponseEntity.internalServerError()

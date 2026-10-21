@@ -25,6 +25,9 @@ never pays for a narrative. `engine` is read from the domain entry, so
 moving a domain onto the local pipeline later is a data change.
 """
 
+import logging
+import time
+
 from app.models.schemas import AnalyzeResponse, DomainDetection, LockReason, ResumeProfile, Tier
 from app.services import ats_score, gap_analysis, matcher
 from app.services.dictionary_skills import GENERAL_TAXONOMY_PATH, find_skills
@@ -38,6 +41,8 @@ from app.services.parser import parse_resume
 LOCK_REASON_AI_ENGINE_REQUIRED: LockReason = "ai_engine_required"
 LOCK_REASON_COMMUNITY_EDITION: LockReason = "community_edition"
 LOCK_REASON_AI_BUDGET_EXHAUSTED: LockReason = "ai_budget_exhausted"
+
+log = logging.getLogger(__name__)
 
 
 def _parse_for_domain(resume_text: str, domain: DomainDetection) -> ResumeProfile:
@@ -84,6 +89,7 @@ def analyze_text(
     cost (AnalyzeResponse.llm_usage) and whether a paid extraction ran
     (ai_extraction_used) -- the latter is what the backend charges a free
     account's allowance for."""
+    start = time.perf_counter()
     with ledger.request_scope() as llm_calls:
         response = _analyze(resume_text, top_n, tier, llm_allowed)
     if llm_calls:
@@ -91,6 +97,15 @@ def analyze_text(
         response.ai_extraction_used = any(
             c.purpose == "extract" and not c.cache_hit for c in llm_calls
         )
+    # Outcome only -- never the resume text or anything parsed out of it.
+    log.info(
+        "analysis tier=%s domain=%s engine=%s confidence=%.2f ats=%.0f matches=%d locked=%s "
+        "explanation=%s llm_calls=%d ai_extraction=%s chars=%d in %.0fms",
+        tier, response.domain.domain, response.domain.engine, response.domain.confidence,
+        response.ats_score.score, len(response.matches), response.lock_reason or False,
+        response.explanation_source, len(llm_calls), response.ai_extraction_used,
+        len(resume_text), (time.perf_counter() - start) * 1000,
+    )
     return response
 
 
@@ -123,9 +138,17 @@ def _analyze(resume_text: str, top_n: int, tier: Tier, llm_allowed: bool) -> Ana
             engine_fingerprint=engine_fingerprint(),
         )
 
+    t = time.perf_counter()
     profile = _parse_for_domain(resume_text, domain)
+    parsed_ms = (time.perf_counter() - t) * 1000
+    t = time.perf_counter()
     matches = matcher.match_roles(profile.skills, top_n=top_n, domain=domain.domain)
     gaps = gap_analysis.analyze_gaps(matches)
+    log.debug(
+        "parse %.0fms (skills=%d experience=%d education=%d), match+gaps %.0fms",
+        parsed_ms, len(profile.skills), len(profile.experience), len(profile.education),
+        (time.perf_counter() - t) * 1000,
+    )
     # Only Premium pays for a narrative; a free AI analysis gets the
     # deterministic template over the AI-extracted profile.
     explanation = explain_results(

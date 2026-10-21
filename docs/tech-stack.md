@@ -8,7 +8,7 @@ Each layer's stack and whether it is built or planned. Sources: the repo root `R
 | Backend | Java 21, Spring Boot 3.3, Spring Security (JWT, method security), Spring Data JPA, Flyway, springdoc-openapi | Implemented (`backend/`) |
 | Database | PostgreSQL 15 (Docker Compose locally), schema managed by Flyway (`V1__init_schema.sql`), `ddl-auto: validate` | Implemented |
 | Object storage | MinIO (S3-compatible) for uploaded resume files (`resume.ResumeStorageService`); no separate NoSQL store (see [LLD §7.3](lld.md)) | Implemented |
-| ML service / core engine | Python 3.12, FastAPI, `sentence-transformers` (`all-MiniLM-L6-v2`), `transformers` (local NER `yashpwr/resume-ner-bert`, pinned commit), `pdfplumber` | Implemented (`ml-service/`) |
+| ML service / core engine | Python 3.12, FastAPI, `sentence-transformers` (`all-MiniLM-L6-v2`), `transformers` (local NER: our fine-tune of `yashpwr/resume-ner-bert`, pinned by weights hash), `pdfplumber` | Implemented (`ml-service/`) |
 | Inference runtime | PyTorch CPU today; ONNX Runtime (CPU) with pinned, hashed model exports planned for the core engine | Planned (step 1) |
 | Resume parsing backend | Local NER model (offline, no API key) by default; LLM (Groq/Gemini) opt-in via `PARSER_BACKEND` | Implemented |
 | Section segmentation + dictionary skills | Heading regex sectioner; Aho-Corasick (`pyahocorasick`) or spaCy `PhraseMatcher` over the taxonomy | Planned (step 2) |
@@ -49,7 +49,7 @@ Planned additions for steps 1 and 2: `onnxruntime`, `optimum[onnxruntime]` (expo
 
 | Artifact | Size | Notes |
 |---|---|---|
-| `yashpwr/resume-ner-bert` (BERT-base, 25 BIO labels; 49 % token F1 on the 220 annotated DataTurks resumes; with the parser's fallbacks, 60 % field macro F1 on the held-out half and 64 % on 20 unseen LiveCareer resumes; see `supporting-docs/ml-pipeline.md`, section "NER model baseline") | 431 MB fp32 / 108 MB int8 | Pinned to commit `3ea6ecf`; distillation target ≈ 130 MB (step 7) |
+| `yashpwr/resume-ner-bert` (BERT-base, 25 BIO labels; 49 % token F1 on the 220 annotated DataTurks resumes; with the parser's fallbacks, 60 % field macro F1 on the held-out half and 64 % on 20 unseen LiveCareer resumes; see `supporting-docs/ml-pipeline.md`, section "NER model baseline") | 431 MB fp32 / 108 MB int8 | Pinned to commit `3ea6ecf`; the training base since engine 0.5.0. The app serves our fine-tune of it (84 % / 90 % field macro F1, `ml-service/training/RESULTS.md`); a distilled 6-layer student (250 MB fp32) is kept as the smaller option |
 | `all-MiniLM-L6-v2` (22.7M params, 384-dim) | ≈ 90 MB | Used at build time to precompute vectors; at runtime only for out-of-taxonomy skills |
 | `skill_vectors.npy`, `role_vectors.npy` | < 1 MB | Shipped constants; part of the engine fingerprint |
 | `skill_taxonomy.json`, `role_skills.json`, `weights_snapshot.json` | < 1 MB | Part of the engine fingerprint |

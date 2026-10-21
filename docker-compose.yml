@@ -52,6 +52,8 @@ services:
       - "8000:8000"
     volumes:
       - hf-models:/models
+      # Trained NER models (ml-service/scripts/fetch_ner_models.sh).
+      - ./ml-service/models:/srv/models:ro
       - ${GCLOUD_ADC_PATH:-~/.config/gcloud/application_default_credentials.json}:/gcloud/application_default_credentials.json:ro
 
   backend:

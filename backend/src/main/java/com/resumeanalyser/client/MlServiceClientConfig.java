@@ -31,6 +31,7 @@ public class MlServiceClientConfig {
         return RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(new JdkClientHttpRequestFactory(httpClient))
+                .requestInterceptor(new MlServiceLoggingInterceptor())
                 // Explicitly wired to the app-wide, Spring Boot-managed
                 // ObjectMapper (fail-on-unknown-properties disabled by its
                 // default autoconfiguration) rather than the plain

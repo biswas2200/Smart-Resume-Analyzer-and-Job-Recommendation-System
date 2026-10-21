@@ -4,6 +4,7 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 APP_DIR = Path(__file__).resolve().parent
+SERVICE_DIR = APP_DIR.parent
 DATA_DIR = APP_DIR / "data"
 
 
@@ -25,17 +26,29 @@ class Settings(BaseSettings):
     # branch in get_llm_client(), not a schema change here.
     llm_provider: str = "gemini"
 
+    # Level for the app's own loggers (app.*): DEBUG, INFO, WARNING, ERROR.
+    log_level: str = "INFO"
+    # Also write logs to this file (rotated at 10 MB, 5 kept), e.g.
+    # logs/ml-service.log. Empty: console only.
+    log_file: str = ""
+
     # Which backend parser.parse_resume() should use: "local" (default --
     # runs a resume-NER model fully offline, no credentials or network
     # needed) or "llm" (routes through llm_provider; opt-in, since it costs
     # money and needs outbound network access).
     parser_backend: str = "local"
-    # Hugging Face model id for the local NER parsing path. Kept as a plain
-    # string (like groq_model/gemini_model below) so swapping in a
-    # fine-tuned variant never requires a code change. Measured baseline:
-    # 49% token F1 on 220 annotated real resumes
-    # (scripts/evaluate_ner_extraction.py). Apache-2.0.
-    ner_model_name: str = "yashpwr/resume-ner-bert"
+    # The local NER model: a Hugging Face model id, or a directory holding a
+    # saved model (a relative path is resolved against ml-service/). Default:
+    # run 1's teacher, yashpwr/resume-ner-bert fine-tuned on our resumes --
+    # 84 % field F1 on DataTurks test and 90 % on unseen LiveCareer, against
+    # 76 % / 64 % for the untouched yashpwr model (training/RESULTS.md).
+    # Fetch it with scripts/fetch_ner_models.sh. The smaller distilled
+    # student (65M parameters, 81 % / 90 %) sits next to it in
+    # models/ner/student-run1; switch with NER_MODEL_NAME and
+    # NER_MODEL_REVISION. To go back to the upstream model, set
+    # NER_MODEL_NAME=yashpwr/resume-ner-bert and
+    # NER_MODEL_REVISION=3ea6ecf44274c0947b6e627bd36c32ec0e8c3eb8.
+    ner_model_name: str = "models/ner/teacher-run1"
 
     # Gemini runs on Vertex AI and authenticates with Application Default
     # Credentials (ADC): `gcloud auth application-default login` on a dev
@@ -109,7 +122,7 @@ class Settings(BaseSettings):
     # Engine version stamped into every engine_fingerprint (FR-11.2, see
     # fingerprint.py) -- bumped on any release that changes scoring behavior,
     # so two deployments can prove they're running the same core engine.
-    engine_version: str = "0.4.1"
+    engine_version: str = "0.5.0"
 
     # Revision/commit pins for the two models fingerprint.py hashes into
     # engine_fingerprint.ner_model_sha / embed_model_sha. Real content-hash
@@ -117,8 +130,10 @@ class Settings(BaseSettings):
     # configured identifier) is a further step -- ONNX export and baking the
     # model into the release image, see docs/editions-and-parity.md -- that
     # this fingerprint mechanism doesn't depend on to exist.
-    # The NER pin is the commit of yashpwr/resume-ner-bert evaluated above.
-    ner_model_revision: str = "3ea6ecf44274c0947b6e627bd36c32ec0e8c3eb8"
+    # The NER pin is a Hugging Face commit for a hub model, or the SHA-256 of
+    # model.safetensors for a local directory; the loader refuses a local
+    # model whose weights do not match it.
+    ner_model_revision: str = "ab0fd6ea92dee31fed5e3f56a278197e8c55a358df19328a79981b00912fe189"
     # The embedding pin is the all-MiniLM-L6-v2 commit the role vectors and
     # domain scores were measured with.
     embedding_model_revision: str = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
