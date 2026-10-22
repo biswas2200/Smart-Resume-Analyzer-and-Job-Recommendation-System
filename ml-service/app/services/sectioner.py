@@ -16,10 +16,25 @@ from dataclasses import dataclass
 _HEADING_PATTERNS: dict[str, re.Pattern] = {
     "skills": re.compile(r"^(technical skills|core competencies|skills)\s*:?\s*$", re.IGNORECASE),
     "experience": re.compile(
-        r"^(work experience|employment history|professional experience|experience)\s*:?\s*$", re.IGNORECASE
+        r"^(work experience|employment history|professional experience|experience"
+        r"|internships?|internship experience)\s*:?\s*$",
+        re.IGNORECASE,
     ),
     "education": re.compile(r"^(education|academic background)\s*:?\s*$", re.IGNORECASE),
 }
+# Headings of sections we don't parse. They only end the section before them,
+# so e.g. a "Projects" list after Education is not read as more education. A
+# few take any wording after the first word ("Hackathons & Open Source ...").
+_OTHER_HEADING = re.compile(
+    r"^((academic |personal |key |major )?projects?|certifications?|certificates|courses|(relevant )?coursework"
+    r"|achievements|awards?( (and|&) achievements)?|publications|languages|interests|hobbies"
+    r"|(extra[- ]?curricular )?activities|volunteering|volunteer experience|references"
+    r"|(professional |career )?(summary|profile|objective)"
+    r"|(hackathons?|open source|competitive (coding|programming))\b[\w ,&/-]*)\s*:?\s*$",
+    re.IGNORECASE,
+)
+# Longer lines are content, never a heading.
+_MAX_HEADING_LENGTH = 60
 
 
 @dataclass
@@ -32,21 +47,32 @@ class Sections:
 
 def split_sections(text: str) -> Sections:
     """Buckets each line of text under whichever heading most recently
-    preceded it. A line before the first recognized heading, and every line
-    of a resume with no recognized heading at all, goes to `other`.
+    preceded it. A line before the first recognized heading, a line under a
+    heading we don't parse (Projects, Certifications, ...), and every line of
+    a resume with none of the Skills / Experience / Education headings, goes
+    to `other`.
     """
     buckets: dict[str, list[str]] = {"skills": [], "experience": [], "education": [], "other": []}
     current = "other"
     matched_any = False
 
     for line in text.splitlines():
+        stripped = line.strip()
+        if len(stripped) > _MAX_HEADING_LENGTH:
+            buckets[current].append(line)
+            continue
         matched_section = next(
-            (name for name, pattern in _HEADING_PATTERNS.items() if pattern.match(line.strip())), None
+            (name for name, pattern in _HEADING_PATTERNS.items() if pattern.match(stripped)), None
         )
         if matched_section:
             current = matched_section
             matched_any = True
             continue  # the heading line itself isn't section content
+        if _OTHER_HEADING.match(stripped):
+            # Ends the section above, but on its own doesn't make the resume
+            # "sectioned": with only such headings, everything stays in `other`.
+            current = "other"
+            continue
         buckets[current].append(line)
 
     if not matched_any:
