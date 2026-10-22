@@ -1,6 +1,7 @@
 package com.resumeanalyser.job;
 
 import com.resumeanalyser.account.User;
+import com.resumeanalyser.common.BadRequestException;
 import com.resumeanalyser.common.LimitReachedException;
 import com.resumeanalyser.common.ResourceNotFoundException;
 import com.resumeanalyser.common.TooManyRequestsException;
@@ -29,16 +30,18 @@ public class WatchlistService {
     private final JobPostingRepository postings;
     private final WatchlistProperties limits;
     private final WatchlistRateLimiter rateLimiter;
+    private final CompanyService companyService;
     private final Clock clock;
 
     public WatchlistService(WatchedCompanyRepository watched, CompanyRepository companies,
                             JobPostingRepository postings, WatchlistProperties limits,
-                            WatchlistRateLimiter rateLimiter, Clock clock) {
+                            WatchlistRateLimiter rateLimiter, CompanyService companyService, Clock clock) {
         this.watched = watched;
         this.companies = companies;
         this.postings = postings;
         this.limits = limits;
         this.rateLimiter = rateLimiter;
+        this.companyService = companyService;
         this.clock = clock;
     }
 
@@ -70,18 +73,56 @@ public class WatchlistService {
         rateLimiter.recordChange(user.getId());
         Company company = companies.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("No company with id " + companyId));
-        WatchedCompany entry = watched.findByUserAndCompany(user, company).orElseGet(() -> {
-            if (watched.countByUser(user) >= limits.maxCompanies()) {
-                throw new LimitReachedException("You can watch up to " + limits.maxCompanies()
-                        + " companies. Stop watching one to add another.");
-            }
+        return toDto(entryFor(user, company), clock.instant().minus(NEW_FOR));
+    }
+
+    /**
+     * Watches a company that may not be in our list yet, found by its website:
+     * an existing company with that domain is reused, otherwise it is added
+     * (source USER) and its job tool looked for straight away -- Lever,
+     * Greenhouse or Ashby, from {@code careersUrl} if given, else from the
+     * domain and name. Counts as one watchlist change, and the cap is checked
+     * before any job-board call, so a full or too-busy watchlist costs no
+     * outside requests. Not transactional: detection makes network calls
+     * that can take a few seconds.
+     *
+     * @throws TooManyRequestsException if the user is changing the watchlist too quickly
+     * @throws BadRequestException      if {@code website} isn't a web address
+     * @throws LimitReachedException    if the user already watches the most companies allowed
+     */
+    public WatchedCompanyDto watchNew(User user, String name, String website, String careersUrl) {
+        rateLimiter.recordChange(user.getId());
+        String domain = Domains.normalize(website);
+        if (domain == null) {
+            throw new BadRequestException("That doesn't look like a website address, e.g. acme.com");
+        }
+        boolean alreadyWatched = companies.findByDomain(domain)
+                .flatMap(company -> watched.findByUserAndCompany(user, company))
+                .isPresent();
+        if (!alreadyWatched) {
+            requireRoom(user);
+        }
+        Company company = companyService.add(name, website, careersUrl, CompanySource.USER);
+        return toDto(entryFor(user, company), clock.instant().minus(NEW_FOR));
+    }
+
+    /** The user's entry for this company, added if missing (the one place entries are created). */
+    private WatchedCompany entryFor(User user, Company company) {
+        return watched.findByUserAndCompany(user, company).orElseGet(() -> {
+            requireRoom(user);
             WatchedCompany created = new WatchedCompany();
             created.setUser(user);
             created.setCompany(company);
             created.setAddedAt(clock.instant());
             return watched.save(created);
         });
-        return toDto(entry, clock.instant().minus(NEW_FOR));
+    }
+
+    private void requireRoom(User user) {
+        if (watched.countByUser(user) >= limits.maxCompanies()) {
+            throw new LimitReachedException("You can watch up to " + limits.maxCompanies()
+                    + " companies. Stop watching one to add another.");
+        }
     }
 
     /**

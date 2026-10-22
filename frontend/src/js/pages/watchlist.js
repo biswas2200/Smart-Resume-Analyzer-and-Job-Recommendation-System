@@ -1,11 +1,27 @@
-import { getWatchlist, getWatchlistLimits, searchCompanies, unwatchCompany, watchCompany } from '../api/watchlist-api.js';
+import {
+  addCompany,
+  getWatchlist,
+  getWatchlistLimits,
+  searchCompanies,
+  unwatchCompany,
+  watchCompany,
+} from '../api/watchlist-api.js';
 import { extractApiErrorMessage } from '../core/api-error.js';
-import { byId, cloneTemplate, el, field, setText, show } from '../core/dom.js';
+import { byId, cloneTemplate, el, field, setBusy, setText, show } from '../core/dom.js';
 import { requireAuth } from '../core/session.js';
 import { hydrateIcons, icon } from '../components/icons.js';
 import { renderShell } from '../components/shell.js';
 import { safeLink } from './jobs-rules.js';
-import { capLabel, companyStatusBadge, isFull, isSearchable, newJobsLabel, openJobsLabel } from './watchlist-rules.js';
+import {
+  addCompanyRequest,
+  addedMessage,
+  capLabel,
+  companyStatusBadge,
+  isFull,
+  isSearchable,
+  newJobsLabel,
+  openJobsLabel,
+} from './watchlist-rules.js';
 
 // The companies the user watches for new jobs. Search finds a company in our list and Watch
 // adds it; each card shows whether we can read its jobs, how many are open and how many are
@@ -25,6 +41,10 @@ if (requireAuth()) {
   byId('search-form').addEventListener('submit', (event) => {
     event.preventDefault();
     search();
+  });
+  byId('add-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    add();
   });
   load();
 }
@@ -164,6 +184,7 @@ function paintCap() {
   for (const [companyId, button] of optionButtons) {
     paintOption(button, watched.some((w) => w.companyId === companyId));
   }
+  paintAddButton();
 }
 
 async function watch(option, button) {
@@ -177,6 +198,48 @@ async function watch(option, button) {
     button.disabled = false;
     showSearchNote(extractApiErrorMessage(error, 'Could not add this company. Please try again.'));
   }
+}
+
+/** Adds a company that isn't in our list, by its website, and watches it. */
+async function add() {
+  const errorLine = byId('add-error');
+  const note = byId('add-note');
+  show(errorLine, false);
+  show(note, false);
+  const { body, error } = addCompanyRequest({
+    name: byId('add-name').value,
+    website: byId('add-website').value,
+    careersUrl: byId('add-careers').value,
+  });
+  if (error) {
+    setText(errorLine, error);
+    show(errorLine, true);
+    return;
+  }
+  const button = byId('add-submit');
+  setBusy(button, true, 'Looking for its jobs…');
+  try {
+    const entry = await addCompany(body);
+    watched = [entry, ...watched.filter((w) => w.companyId !== entry.companyId)];
+    render();
+    byId('add-form').reset();
+    setText(note, addedMessage(entry));
+    show(note, true);
+  } catch (failure) {
+    setText(errorLine, extractApiErrorMessage(failure, 'Could not add this company. Please try again.'));
+    show(errorLine, true);
+  } finally {
+    setBusy(button, false);
+    paintAddButton();
+  }
+}
+
+/** The add form's button is off while the watchlist is full, like the Watch buttons. */
+function paintAddButton() {
+  const button = byId('add-submit');
+  const full = isFull(watched.length, maxCompanies);
+  button.disabled = full;
+  button.title = full ? `You can watch up to ${maxCompanies} companies` : '';
 }
 
 function showError(card, message) {

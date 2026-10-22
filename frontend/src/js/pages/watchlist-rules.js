@@ -38,6 +38,36 @@ export function capLabel(watching, maxCompanies) {
   return `${watching} of ${maxCompanies} companies watched`;
 }
 
+/**
+ * Checks the "add a company by its website" form and builds the request body for
+ * `POST /watchlist/companies`. Resolves to `{ body }` or `{ error }` (a message to show).
+ * The backend checks the website again; this only catches what is plainly wrong.
+ */
+export function addCompanyRequest({ name, website, careersUrl }) {
+  const cleanName = (name ?? '').trim();
+  const cleanWebsite = (website ?? '').trim();
+  const cleanCareers = (careersUrl ?? '').trim();
+  if (!cleanName) {
+    return { error: "Enter the company's name." };
+  }
+  if (!cleanWebsite || /\s/.test(cleanWebsite) || !cleanWebsite.includes('.')) {
+    return { error: 'Enter its website, e.g. acme.com' };
+  }
+  const body = { name: cleanName, website: cleanWebsite };
+  if (cleanCareers) {
+    body.careersUrl = cleanCareers;
+  }
+  return { body };
+}
+
+/** What to say after adding a company, from whether we could read its jobs. */
+export function addedMessage(entry) {
+  if (entry.status === 'ACTIVE') {
+    return `Watching ${entry.name}. We found its jobs.`;
+  }
+  return `Watching ${entry.name}. We couldn't find its jobs on Lever, Greenhouse or Ashby yet; a careers page link helps.`;
+}
+
 /** Whether the watchlist is at its cap (never, while the cap is unknown). */
 export function isFull(watching, maxCompanies) {
   return Boolean(maxCompanies) && watching >= maxCompanies;

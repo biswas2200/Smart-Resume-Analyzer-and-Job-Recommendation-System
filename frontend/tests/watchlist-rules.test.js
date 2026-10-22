@@ -1,7 +1,38 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { capLabel, companyStatusBadge, isFull, isSearchable, newJobsLabel, openJobsLabel } from '../src/js/pages/watchlist-rules.js';
+import {
+  addCompanyRequest,
+  addedMessage,
+  capLabel,
+  companyStatusBadge,
+  isFull,
+  isSearchable,
+  newJobsLabel,
+  openJobsLabel,
+} from '../src/js/pages/watchlist-rules.js';
+
+test('addCompanyRequest trims the form and leaves out an empty careers link', () => {
+  assert.deepEqual(addCompanyRequest({ name: ' Acme ', website: ' acme.com ', careersUrl: '  ' }), {
+    body: { name: 'Acme', website: 'acme.com' },
+  });
+  assert.deepEqual(
+    addCompanyRequest({ name: 'Acme', website: 'https://acme.com', careersUrl: 'https://jobs.lever.co/acme' }),
+    { body: { name: 'Acme', website: 'https://acme.com', careersUrl: 'https://jobs.lever.co/acme' } },
+  );
+});
+
+test('addCompanyRequest catches a missing name or a plainly wrong website', () => {
+  assert.equal(addCompanyRequest({ name: '', website: 'acme.com' }).error, "Enter the company's name.");
+  for (const website of ['', 'acme', 'acme dot com', 'acme .com']) {
+    assert.equal(addCompanyRequest({ name: 'Acme', website }).error, 'Enter its website, e.g. acme.com', website);
+  }
+});
+
+test('addedMessage says whether we found the jobs', () => {
+  assert.equal(addedMessage({ name: 'Acme', status: 'ACTIVE' }), 'Watching Acme. We found its jobs.');
+  assert.match(addedMessage({ name: 'Acme', status: 'UNSUPPORTED' }), /couldn't find its jobs/);
+});
 
 test('capLabel shows how much of the cap is used, once the cap is known', () => {
   assert.equal(capLabel(3, 25), '3 of 25 companies watched');

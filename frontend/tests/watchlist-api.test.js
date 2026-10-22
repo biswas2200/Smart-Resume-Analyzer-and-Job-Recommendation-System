@@ -3,7 +3,14 @@ import assert from 'node:assert/strict';
 
 import { API_BASE_URL } from '../src/js/config.js';
 import { ApiError } from '../src/js/core/api-error.js';
-import { getWatchlist, getWatchlistLimits, searchCompanies, unwatchCompany, watchCompany } from '../src/js/api/watchlist-api.js';
+import {
+  addCompany,
+  getWatchlist,
+  getWatchlistLimits,
+  searchCompanies,
+  unwatchCompany,
+  watchCompany,
+} from '../src/js/api/watchlist-api.js';
 
 // watchlist-api.js goes through http.js, which only needs localStorage, location and fetch.
 Object.defineProperty(globalThis, 'localStorage', {
@@ -19,6 +26,11 @@ beforeEach(() => {
     calls.push([init.method, url.replace(API_BASE_URL, ''), init.body]);
     return new Response(init.method === 'DELETE' ? null : '[]', { status: init.method === 'DELETE' ? 204 : 200 });
   };
+});
+
+test('addCompany posts the name and website as JSON', async () => {
+  await addCompany({ name: 'Acme', website: 'acme.com' });
+  assert.deepEqual(calls, [['POST', '/watchlist/companies', JSON.stringify({ name: 'Acme', website: 'acme.com' })]]);
 });
 
 test('getWatchlist lists the watched companies', async () => {

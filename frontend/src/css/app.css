@@ -446,6 +446,9 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .watch-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .saved-card .watch-badges .badge { margin-top: 0; }
 .saved-none { font-size: 13.5px; }
+.watch-add { border-top: 1px solid var(--border); padding: 10px 0; }
+.watch-add summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.watch-add-form { display: grid; gap: 12px; margin-top: 12px; max-width: 520px; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1100px) {

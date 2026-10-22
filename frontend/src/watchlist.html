@@ -36,6 +36,29 @@
         <div class="card watch-results" id="search-results" hidden>
           <ul class="watch-options" id="search-list"></ul>
           <p class="muted" id="search-note" hidden></p>
+          <details class="watch-add" id="add-company">
+            <summary>Can't find it? Add it by its website</summary>
+            <form class="watch-add-form" id="add-form" novalidate>
+              <div class="field">
+                <label for="add-name">Company name</label>
+                <input class="input" id="add-name" maxlength="255" autocomplete="organization" />
+              </div>
+              <div class="field">
+                <label for="add-website">Website</label>
+                <input class="input" id="add-website" maxlength="512" placeholder="acme.com" inputmode="url" />
+              </div>
+              <div class="field">
+                <label for="add-careers">Careers page link <span class="muted">(optional)</span></label>
+                <input class="input" id="add-careers" maxlength="1024" placeholder="https://jobs.lever.co/acme" inputmode="url" />
+              </div>
+              <p class="muted">We look for its jobs on Lever, Greenhouse and Ashby. This takes a few seconds.</p>
+              <div class="row">
+                <button class="btn btn-primary btn-sm" id="add-submit" type="submit">Add and watch</button>
+              </div>
+              <p class="alert alert-error" id="add-error" role="alert" hidden></p>
+              <p class="alert alert-success" id="add-note" role="status" hidden></p>
+            </form>
+          </details>
         </div>
 
         <div class="skeleton" id="status-loading" aria-label="Loading your watchlist">
