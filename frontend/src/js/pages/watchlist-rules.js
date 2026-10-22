@@ -29,3 +29,16 @@ export function newJobsLabel(count) {
 export function isSearchable(query) {
   return (query ?? '').trim().length >= 2;
 }
+
+/** "3 of 25 companies watched", or null while the cap is unknown. */
+export function capLabel(watching, maxCompanies) {
+  if (!maxCompanies) {
+    return null;
+  }
+  return `${watching} of ${maxCompanies} companies watched`;
+}
+
+/** Whether the watchlist is at its cap (never, while the cap is unknown). */
+export function isFull(watching, maxCompanies) {
+  return Boolean(maxCompanies) && watching >= maxCompanies;
+}

@@ -15,4 +15,6 @@ public interface WatchedCompanyRepository extends JpaRepository<WatchedCompany, 
     List<WatchedCompany> findByUserOrderByAddedAtDesc(User user);
 
     Optional<WatchedCompany> findByUserAndCompany(User user, Company company);
+
+    long countByUser(User user);
 }

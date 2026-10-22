@@ -10,6 +10,15 @@ export function getWatchlist() {
   return get('/watchlist');
 }
 
+/**
+ * The limits every user has, and this user's use of the cap:
+ * `{ maxCompanies, watching, changesPerMinute, changesPerHour }`. Going past them answers
+ * 409 (cap) or 429 with Retry-After (too many changes), each with a message to show.
+ */
+export function getWatchlistLimits() {
+  return get('/watchlist/limits');
+}
+
 /** Up to 20 companies whose name contains `query`: `[{ id, name, domain, status, watched }]`. */
 export function searchCompanies(query) {
   return get(`/watchlist/companies?${new URLSearchParams({ q: (query ?? '').trim() })}`);

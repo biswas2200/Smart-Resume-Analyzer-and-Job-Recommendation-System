@@ -17,7 +17,7 @@ import java.net.http.HttpClient;
 @EnableScheduling
 // Pages serialise as a stable {content, page} shape rather than Spring Data's internal PageImpl.
 @EnableSpringDataWebSupport(pageSerializationMode = EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO)
-@EnableConfigurationProperties(JobsProperties.class)
+@EnableConfigurationProperties({JobsProperties.class, WatchlistProperties.class})
 public class JobsConfig {
 
     /** The client every job feed and Wikidata call goes through (no base URL: each caller names its host). */

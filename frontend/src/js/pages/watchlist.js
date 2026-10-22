@@ -1,17 +1,20 @@
-import { getWatchlist, searchCompanies, unwatchCompany, watchCompany } from '../api/watchlist-api.js';
+import { getWatchlist, getWatchlistLimits, searchCompanies, unwatchCompany, watchCompany } from '../api/watchlist-api.js';
 import { extractApiErrorMessage } from '../core/api-error.js';
 import { byId, cloneTemplate, el, field, setText, show } from '../core/dom.js';
 import { requireAuth } from '../core/session.js';
 import { hydrateIcons, icon } from '../components/icons.js';
 import { renderShell } from '../components/shell.js';
 import { safeLink } from './jobs-rules.js';
-import { companyStatusBadge, isSearchable, newJobsLabel, openJobsLabel } from './watchlist-rules.js';
+import { capLabel, companyStatusBadge, isFull, isSearchable, newJobsLabel, openJobsLabel } from './watchlist-rules.js';
 
 // The companies the user watches for new jobs. Search finds a company in our list and Watch
 // adds it; each card shows whether we can read its jobs, how many are open and how many are
-// new this week. Stop watching drops it.
+// new this week. Stop watching drops it. Every user may watch up to `maxCompanies`; the
+// backend also limits how fast the list changes, and its 409/429 messages are shown as-is.
 
 let watched = [];
+// From GET /watchlist/limits; null if that call failed (the backend still enforces the cap).
+let maxCompanies = null;
 // The Watch buttons in the current search results, by company id, so Stop watching can re-enable one.
 const optionButtons = new Map();
 
@@ -29,7 +32,9 @@ if (requireAuth()) {
 async function load() {
   showStatus('loading');
   try {
-    watched = await getWatchlist();
+    const [list, limits] = await Promise.all([getWatchlist(), getWatchlistLimits().catch(() => null)]);
+    watched = list;
+    maxCompanies = limits?.maxCompanies ?? null;
     render();
   } catch (error) {
     showStatus('error', extractApiErrorMessage(error, 'Please check your connection and try again.'));
@@ -47,6 +52,7 @@ function showStatus(state, message) {
 }
 
 function render() {
+  paintCap();
   if (watched.length === 0) {
     showStatus('empty');
     return;
@@ -143,8 +149,21 @@ function renderOption(option) {
 }
 
 function paintOption(button, isWatched) {
-  button.disabled = isWatched;
+  const full = isFull(watched.length, maxCompanies);
+  button.disabled = isWatched || full;
+  button.title = !isWatched && full ? `You can watch up to ${maxCompanies} companies` : '';
   button.replaceChildren(icon(isWatched ? 'check' : 'plus'), isWatched ? 'Watching' : 'Watch');
+}
+
+/** The "3 of 25" line, and the Watch buttons turned off while the list is full. */
+function paintCap() {
+  const cap = byId('watch-cap');
+  const label = capLabel(watched.length, maxCompanies);
+  setText(cap, label ?? '');
+  show(cap, Boolean(label));
+  for (const [companyId, button] of optionButtons) {
+    paintOption(button, watched.some((w) => w.companyId === companyId));
+  }
 }
 
 async function watch(option, button) {

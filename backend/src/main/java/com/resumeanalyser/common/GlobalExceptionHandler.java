@@ -4,6 +4,7 @@ import com.resumeanalyser.common.logging.RequestIdFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -77,6 +78,24 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiError.of(HttpStatus.NOT_FOUND.value(), e.getMessage()));
+    }
+
+    /**
+     * Handles a user making too many requests of one kind too quickly (e.g. watchlist
+     * changes): 429, with {@code Retry-After} in whole seconds so a client knows when to retry.
+     */
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ApiError> handleTooManyRequests(TooManyRequestsException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfter().toSeconds()))
+                .body(ApiError.of(HttpStatus.TOO_MANY_REQUESTS.value(), e.getMessage()));
+    }
+
+    /** Handles a request that would take a user past a fixed allowance (e.g. the watchlist cap): 409. */
+    @ExceptionHandler(LimitReachedException.class)
+    public ResponseEntity<ApiError> handleLimitReached(LimitReachedException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiError.of(HttpStatus.CONFLICT.value(), e.getMessage()));
     }
 
     /**
