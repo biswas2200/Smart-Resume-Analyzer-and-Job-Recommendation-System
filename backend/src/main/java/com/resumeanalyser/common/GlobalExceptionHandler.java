@@ -91,6 +91,13 @@ public class GlobalExceptionHandler {
                 .body(ApiError.of(HttpStatus.TOO_MANY_REQUESTS.value(), e.getMessage()));
     }
 
+    /** Handles a request value that makes no sense (e.g. a website that isn't a web address): 400. */
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ApiError> handleBadRequest(BadRequestException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiError.of(HttpStatus.BAD_REQUEST.value(), e.getMessage()));
+    }
+
     /** Handles a request that would take a user past a fixed allowance (e.g. the watchlist cap): 409. */
     @ExceptionHandler(LimitReachedException.class)
     public ResponseEntity<ApiError> handleLimitReached(LimitReachedException e) {

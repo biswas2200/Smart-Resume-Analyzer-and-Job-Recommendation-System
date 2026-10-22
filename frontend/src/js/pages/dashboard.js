@@ -1,4 +1,5 @@
 import { getFeedbackFor, submit as submitFeedback } from '../api/feedback-api.js';
+import { getInDemand } from '../api/jobs-api.js';
 import { getDashboard } from '../api/recommendation-api.js';
 import { matchJobDescription, reanalyze } from '../api/resume-api.js';
 import { extractApiErrorMessage } from '../core/api-error.js';
@@ -13,6 +14,9 @@ import {
   canMatchJd,
   canUnlock,
   confidencePercent,
+  demandChipLabel,
+  demandFor,
+  demandHeading,
   engineLabel,
   isBudgetExhausted,
   isCommunityEdition,
@@ -296,13 +300,41 @@ function renderRecommendations(data) {
   writeJson(seenKey, remember);
   const freshIds = new Set(fresh.map((recommendation) => recommendation.recommendationId));
 
-  byId('recommendations').replaceChildren(
-    ...data.recommendations.map((recommendation) =>
-      buildMatchCard(recommendation, freshIds.has(recommendation.recommendationId)),
-    ),
-  );
+  const cards = data.recommendations.map((recommendation) => ({
+    title: recommendation.role.title,
+    card: buildMatchCard(recommendation, freshIds.has(recommendation.recommendationId)),
+  }));
+  byId('recommendations').replaceChildren(...cards.map(({ card }) => card));
   show(byId('recommendations-empty'), data.recommendations.length === 0);
   show(byId('recommendations-section'));
+  if (cards.length > 0) {
+    addDemand(cards);
+  }
+}
+
+/**
+ * Fills each role card with what open jobs for that role ask for (job-market demand), once it
+ * arrives. Optional extra: on failure the cards simply stay without it.
+ */
+async function addDemand(cards) {
+  let inDemand;
+  try {
+    inDemand = await getInDemand();
+  } catch (error) {
+    console.error('Could not load in-demand skills', error);
+    return;
+  }
+  for (const { title, card } of cards) {
+    const demand = demandFor(inDemand, title);
+    if (!demand) {
+      continue;
+    }
+    setText(field(card, 'demand-heading'), demandHeading(demand.jobCount));
+    field(card, 'demand-skills').replaceChildren(
+      ...demand.skills.map((skill) => el('li', skill.have ? { class: 'have' } : {}, demandChipLabel(skill))),
+    );
+    show(field(card, 'demand'));
+  }
 }
 
 function buildMatchCard(recommendation, isNew) {

@@ -5,6 +5,9 @@ import {
   asPercent,
   canMatchJd,
   canUnlock,
+  demandChipLabel,
+  demandFor,
+  demandHeading,
   isLlmExplanation,
   resetDate,
   showsAllowance,
@@ -71,4 +74,27 @@ test('tierLabel and asPercent', () => {
   assert.equal(tierLabel('USER', true), 'Premium', 'preview mode gives a free account Premium');
   assert.equal(tierLabel('ADMIN', true), 'Admin');
   assert.equal(asPercent(0.876), 88);
+});
+
+test('demandFor: the role measured by title, or null when there is nothing to show', () => {
+  const inDemand = {
+    roles: [
+      { role: 'Backend Engineer', jobCount: 14, skills: [{ skill: 'Java', share: 0.62, have: true }] },
+      { role: 'DevOps Engineer', jobCount: 0, computedAt: null, skills: [] },
+      { role: 'Data Engineer', jobCount: 3, skills: [] },
+    ],
+  };
+  assert.equal(demandFor(inDemand, 'Backend Engineer').jobCount, 14);
+  assert.equal(demandFor(inDemand, 'DevOps Engineer'), null, 'too few jobs to say');
+  assert.equal(demandFor(inDemand, 'Data Engineer'), null, 'no skills');
+  assert.equal(demandFor(inDemand, 'Product Manager'), null, 'not measured');
+  assert.equal(demandFor({ roles: [] }, 'Backend Engineer'), null);
+  assert.equal(demandFor(undefined, 'Backend Engineer'), null);
+});
+
+test('demandChipLabel and demandHeading read plainly', () => {
+  assert.equal(demandChipLabel({ skill: 'Python', share: 0.624 }), 'Python · 62%');
+  assert.equal(demandChipLabel({ skill: 'Go' }), 'Go · 0%');
+  assert.equal(demandHeading(14), 'What 14 open jobs for this role ask for');
+  assert.equal(demandHeading(1), 'What 1 open job for this role asks for');
 });

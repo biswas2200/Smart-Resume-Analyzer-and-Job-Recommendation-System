@@ -107,6 +107,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px;
   font: 500 11.5px/1.5 var(--mono); letter-spacing: 0.04em; text-transform: uppercase;
   background: var(--surface-2); color: var(--muted); border: 1px solid var(--border);
+  /* "3 new" or "Jobs tracked" must not break across two lines on a narrow card; the row
+     around the badges wraps instead. */
+  white-space: nowrap;
 }
 .badge-blue { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 .badge-green { background: var(--green-soft); color: var(--green); border-color: transparent; }
@@ -121,6 +124,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .chips-green li { background: var(--green-soft); border-color: transparent; color: var(--green); }
 .chips-amber li { background: var(--amber-soft); border-color: transparent; color: var(--amber); }
+/* In-demand skills on a role card: neutral chips, green where the resume already has it. */
+.chips-demand li.have { background: var(--green-soft); border-color: transparent; color: var(--green); }
+.in-demand { display: grid; gap: 8px; }
+.demand-note { font-size: 12.5px; }
 
 .field { display: grid; gap: 6px; }
 .field label { font-weight: 600; font-size: 13.5px; }
@@ -439,6 +446,9 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .watch-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .saved-card .watch-badges .badge { margin-top: 0; }
 .saved-none { font-size: 13.5px; }
+.watch-add { border-top: 1px solid var(--border); padding: 10px 0; }
+.watch-add summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.watch-add-form { display: grid; gap: 12px; margin-top: 12px; max-width: 520px; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1100px) {

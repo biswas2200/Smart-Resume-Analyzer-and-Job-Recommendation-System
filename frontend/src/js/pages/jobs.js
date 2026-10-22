@@ -7,6 +7,7 @@ import { renderShell } from '../components/shell.js';
 import {
   emptyState,
   employmentLabel,
+  isNewJob,
   isRanked,
   locationLabel,
   matchBand,
@@ -90,6 +91,7 @@ function renderJob(item, ranked) {
 
   setText(field(card, 'title'), job.title);
   setText(field(card, 'company'), job.company);
+  show(field(card, 'new'), isNewJob(job));
   const meta = [locationLabel(job.location), workplaceLabel(job.workplaceType), employmentLabel(job.employmentType), postedLabel(job)]
     .filter(Boolean)
     .join(' · ');

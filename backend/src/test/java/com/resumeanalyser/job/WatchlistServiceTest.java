@@ -1,6 +1,7 @@
 package com.resumeanalyser.job;
 
 import com.resumeanalyser.account.User;
+import com.resumeanalyser.common.BadRequestException;
 import com.resumeanalyser.common.LimitReachedException;
 import com.resumeanalyser.common.ResourceNotFoundException;
 import com.resumeanalyser.common.TooManyRequestsException;
@@ -37,6 +38,7 @@ class WatchlistServiceTest {
     @Mock private CompanyRepository companies;
     @Mock private JobPostingRepository postings;
     @Mock private WatchlistRateLimiter rateLimiter;
+    @Mock private CompanyService companyService;
 
     private WatchlistService service;
     private final User user = new User();
@@ -45,7 +47,7 @@ class WatchlistServiceTest {
     @BeforeEach
     void setUp() {
         service = new WatchlistService(watched, companies, postings, new WatchlistProperties(2, 10, 60),
-                rateLimiter, Clock.fixed(NOW, ZoneOffset.UTC));
+                rateLimiter, companyService, Clock.fixed(NOW, ZoneOffset.UTC));
         company = new Company();
         company.setId(UUID.randomUUID());
         company.setName("Groww");
@@ -163,6 +165,60 @@ class WatchlistServiceTest {
         assertThat(options).extracting("name", "watched")
                 .containsExactly(tuple("Groww", true),
                         tuple("Groww Pay", false));
+    }
+
+    @Test
+    void watchingANewCompanyByWebsite_addsItAsAUserCompanyAndWatchesIt() {
+        when(companies.findByDomain("groww.in")).thenReturn(Optional.empty());
+        when(watched.countByUser(user)).thenReturn(0L);
+        when(companyService.add("Groww", "https://groww.in", null, CompanySource.USER)).thenReturn(company);
+        when(watched.findByUserAndCompany(user, company)).thenReturn(Optional.empty());
+        when(watched.save(any(WatchedCompany.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var dto = service.watchNew(user, "Groww", "https://groww.in", null);
+
+        assertThat(dto.domain()).isEqualTo("groww.in");
+        verify(rateLimiter).recordChange(user.getId());
+        verify(watched).save(any(WatchedCompany.class));
+    }
+
+    @Test
+    void watchingANewCompanyAtTheCap_isRefusedBeforeAnyJobBoardCall() {
+        when(companies.findByDomain("acme.com")).thenReturn(Optional.empty());
+        when(watched.countByUser(user)).thenReturn(2L);
+
+        assertThatThrownBy(() -> service.watchNew(user, "Acme", "acme.com", null))
+                .isInstanceOf(LimitReachedException.class);
+        verifyNoInteractions(companyService);
+        verify(watched, never()).save(any());
+    }
+
+    @Test
+    void watchingByWebsiteACompanyAlreadyWatched_isFineAtTheCap() {
+        when(companies.findByDomain("groww.in")).thenReturn(Optional.of(company));
+        when(watched.findByUserAndCompany(user, company)).thenReturn(Optional.of(entry(NOW)));
+        when(companyService.add("Groww", "www.groww.in", null, CompanySource.USER)).thenReturn(company);
+
+        assertThat(service.watchNew(user, "Groww", "www.groww.in", null).name()).isEqualTo("Groww");
+        verify(watched, never()).countByUser(any());
+        verify(watched, never()).save(any());
+    }
+
+    @Test
+    void watchingByWebsite_needsAWebAddress() {
+        assertThatThrownBy(() -> service.watchNew(user, "Acme", "not a website", null))
+                .isInstanceOf(BadRequestException.class);
+        verifyNoInteractions(companyService, watched);
+    }
+
+    @Test
+    void watchingByWebsiteTooQuickly_stopsBeforeAnything() {
+        doThrow(new TooManyRequestsException("slow down", Duration.ofSeconds(30)))
+                .when(rateLimiter).recordChange(user.getId());
+
+        assertThatThrownBy(() -> service.watchNew(user, "Acme", "acme.com", null))
+                .isInstanceOf(TooManyRequestsException.class);
+        verifyNoInteractions(companies, watched, companyService);
     }
 
     @Test

@@ -163,3 +163,19 @@ export function emptyState(response) {
 export function isRanked(response) {
   return Boolean(response.resumeId);
 }
+
+/** How long a job counts as new: the same 7 days the watchlist's "N new" uses (backend `WatchlistService.NEW_FOR`). */
+export const NEW_FOR_DAYS = 7;
+
+/**
+ * Whether the card gets a New badge: an open job we first saw in its feed within the last
+ * NEW_FOR_DAYS. Uses firstSeenAt, not publishedAt, so a job a company backdated still counts
+ * as new to us, matching the watchlist's count.
+ */
+export function isNewJob(job, now = new Date()) {
+  if (!job?.active || !job.firstSeenAt) {
+    return false;
+  }
+  const age = now - new Date(job.firstSeenAt);
+  return age >= 0 && age < NEW_FOR_DAYS * DAY_MS;
+}
