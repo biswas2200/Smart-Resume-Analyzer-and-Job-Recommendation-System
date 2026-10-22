@@ -107,6 +107,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px;
   font: 500 11.5px/1.5 var(--mono); letter-spacing: 0.04em; text-transform: uppercase;
   background: var(--surface-2); color: var(--muted); border: 1px solid var(--border);
+  /* "3 new" or "Jobs tracked" must not break across two lines on a narrow card; the row
+     around the badges wraps instead. */
+  white-space: nowrap;
 }
 .badge-blue { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 .badge-green { background: var(--green-soft); color: var(--green); border-color: transparent; }
