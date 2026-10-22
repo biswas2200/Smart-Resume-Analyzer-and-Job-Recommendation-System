@@ -13,4 +13,7 @@ public interface CompanyRepository extends JpaRepository<Company, UUID> {
     List<Company> findByStatusOrderByNameAsc(CompanyStatus status);
 
     long countByStatus(CompanyStatus status);
+
+    /** Name search for the watchlist's company picker. */
+    List<Company> findTop20ByNameContainingIgnoreCaseOrderByNameAsc(String name);
 }

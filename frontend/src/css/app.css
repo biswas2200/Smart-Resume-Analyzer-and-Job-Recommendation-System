@@ -428,6 +428,16 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .saved-card h3 { font-size: 16px; }
 .saved-card .badge { margin-top: 6px; }
 .saved-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Watchlist */
+.watch-search { grid-template-columns: minmax(0, 1fr) auto; margin-bottom: 12px; }
+.watch-results { margin-bottom: 22px; padding: 6px 14px; }
+.watch-results > .muted { padding: 10px 0; }
+.watch-options { list-style: none; margin: 0; padding: 0; }
+.watch-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; }
+.watch-option + .watch-option { border-top: 1px solid var(--border); }
+.watch-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.saved-card .watch-badges .badge { margin-top: 0; }
 .saved-none { font-size: 13.5px; }
 
 /* ---------- responsive ---------- */
