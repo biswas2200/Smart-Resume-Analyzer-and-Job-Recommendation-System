@@ -5,6 +5,7 @@ import {
   SAVED_STATUSES,
   emptyState,
   employmentLabel,
+  locationLabel,
   isRanked,
   groupSaved,
   jobsQuery,
@@ -126,4 +127,15 @@ test('employmentLabel: feed spellings become one readable form', () => {
   assert.equal(employmentLabel('contract'), 'Contract');
   assert.equal(employmentLabel('Permanent'), 'Permanent');
   assert.equal(employmentLabel(''), null);
+});
+
+test('locationLabel: one location when a feed lists the same place several ways', () => {
+  assert.equal(locationLabel('Bangalore · Bangalore, Karnataka, India'), 'Bangalore, Karnataka, India');
+  assert.equal(locationLabel('India · Bangalore, Karnataka, India'), 'Bangalore, Karnataka, India');
+  assert.equal(locationLabel('Bengaluru, India · Bengaluru-VTP, India'), 'Bengaluru, India');
+  assert.equal(locationLabel('Hybrid in Bangalore, India · Hybrid in Bengaluru, India'), 'Hybrid in Bangalore, India');
+  assert.equal(locationLabel('Mumbai / Bangalore; Bangalore'), 'Mumbai / Bangalore');
+  assert.equal(locationLabel('Bangalore'), 'Bangalore');
+  assert.equal(locationLabel(''), null);
+  assert.equal(locationLabel(null), null);
 });

@@ -43,7 +43,7 @@ public class JobsRunner {
     }
 
     /**
-     * @param task     "discover", "import-startup-map", "detect" or "refresh"
+     * @param task     "discover", "import-startup-map", "detect", "refresh" or "reextract-skills"
      * @param state    RUNNING, DONE or FAILED
      * @param summary  what the run did (or why it failed); empty while running
      */
@@ -62,6 +62,11 @@ public class JobsRunner {
     /** Retries detection for companies still PENDING (e.g. after a network failure). */
     public boolean startDetect() {
         return start("detect", () -> companyService.detectPending().toString());
+    }
+
+    /** Re-extracts every job's skills, e.g. after the ML service's extractor changed. */
+    public boolean startReextractSkills() {
+        return start("reextract-skills", skillService::reextractAll);
     }
 
     public boolean startRefresh() {

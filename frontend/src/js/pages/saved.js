@@ -4,7 +4,7 @@ import { byId, cloneTemplate, el, field, setText, show } from '../core/dom.js';
 import { requireAuth } from '../core/session.js';
 import { hydrateIcons } from '../components/icons.js';
 import { renderShell } from '../components/shell.js';
-import { SAVED_STATUSES, groupSaved, postedLabel, safeLink, workplaceLabel } from './jobs-rules.js';
+import { SAVED_STATUSES, groupSaved, locationLabel, postedLabel, safeLink, workplaceLabel } from './jobs-rules.js';
 
 // Saved jobs, grouped by where each application stands (Saved → Applied → Interviewing →
 // Offer, or Not selected). Changing a job's status moves it to that group; Remove drops it.
@@ -64,8 +64,9 @@ function renderItem(item) {
   setText(field(card, 'company'), job.company);
   setText(
     field(card, 'meta'),
-    [job.location, workplaceLabel(job.workplaceType), postedLabel(job)].filter(Boolean).join(' · '),
+    [locationLabel(job.location), workplaceLabel(job.workplaceType), postedLabel(job)].filter(Boolean).join(' · '),
   );
+  field(card, 'meta').title = job.location ?? '';
   show(field(card, 'closed'), job.active === false);
 
   const select = field(card, 'status');
