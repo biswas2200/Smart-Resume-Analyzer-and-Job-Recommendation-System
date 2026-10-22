@@ -73,8 +73,9 @@ src/
       landing.js  login.js  register.js  upload.js  dashboard.js  jobs.js  saved.js
                                one script per HTML page
       dashboard-rules.js       tier and lock decisions (pure, unit-tested)
-      jobs-rules.js            jobs request, match band, workplace and posted labels, safe
-                               links for feed URLs, saved-job grouping (pure, unit-tested)
+      jobs-rules.js            jobs request, match band, location, workplace, job-type and
+                               posted labels, safe links for feed URLs, saved-job grouping
+                               (pure, unit-tested)
       insights.js              ATS check wording, fixes and points, score band, next steps,
                                new matches, score change (pure, unit-tested)
 tests/                         node --test suites for the pure modules

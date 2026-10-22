@@ -54,6 +54,20 @@ export function workplaceLabel(raw) {
 }
 
 /**
+ * One location for the card. A posting that names several (the backend joins them with " · ")
+ * usually lists the same city more than once, so this picks the first that gives a city and
+ * region ("Bangalore, Karnataka, India" over "Bangalore" or "India"), else the first. The full
+ * list stays available as a tooltip. Null when blank.
+ */
+export function locationLabel(raw) {
+  const parts = (raw ?? '').split(/\s+·\s+|;/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0) {
+    return null;
+  }
+  return parts.find((part) => part.includes(',')) ?? parts[0];
+}
+
+/**
  * The job type in one readable form ("full-time", "FullTime" and "Full Time" are all
  * "Full-time"); anything else is shown as the feed wrote it, capitalised. Null when blank.
  */

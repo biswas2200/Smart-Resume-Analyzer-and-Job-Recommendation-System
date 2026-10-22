@@ -4,7 +4,16 @@ import { byId, cloneTemplate, field, renderChips, setText, show } from '../core/
 import { requireAuth } from '../core/session.js';
 import { hydrateIcons } from '../components/icons.js';
 import { renderShell } from '../components/shell.js';
-import { emptyState, employmentLabel, isRanked, matchBand, postedLabel, safeLink, workplaceLabel } from './jobs-rules.js';
+import {
+  emptyState,
+  employmentLabel,
+  isRanked,
+  locationLabel,
+  matchBand,
+  postedLabel,
+  safeLink,
+  workplaceLabel,
+} from './jobs-rules.js';
 
 // Jobs for you: open jobs in our city, ranked for the user's latest resume (or newest first
 // when there is none), with search and a workplace filter. Each card says why it ranks where
@@ -81,10 +90,11 @@ function renderJob(item, ranked) {
 
   setText(field(card, 'title'), job.title);
   setText(field(card, 'company'), job.company);
-  const meta = [job.location, workplaceLabel(job.workplaceType), employmentLabel(job.employmentType), postedLabel(job)]
+  const meta = [locationLabel(job.location), workplaceLabel(job.workplaceType), employmentLabel(job.employmentType), postedLabel(job)]
     .filter(Boolean)
     .join(' · ');
   setText(field(card, 'meta'), meta);
+  field(card, 'meta').title = job.location ?? '';
 
   show(field(card, 'score-group'), ranked);
   if (ranked) {
