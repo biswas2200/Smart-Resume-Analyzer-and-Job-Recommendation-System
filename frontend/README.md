@@ -43,12 +43,14 @@ In Docker Compose, the `frontend` service is plain nginx serving `src/` on port 
 | `upload.html` | **Resume analyzer.** Left: the resume as we read it (or the original PDF, for a file chosen in this browser) and the file card for uploading a new version. Right: the parsing result (name, email, phone, skills, experience, education) for the version picked in the version menu. `?resume=<id>` opens a given version. |
 | *(every signed-in page)* | While `GET /tiers` reports `previewMode`, `shell.js` shows a "Preview" banner above the header and labels a free account Premium. The backend already treats every account as Premium then, so no upgrade prompt appears. |
 | `dashboard.html` | **Dashboard**, in three tabs driven by the hash. `#overview`: ATS score and band, detected field, best match, every ATS check with its points and how to fix it, the suggestions (Premium: written by AI) and up to three next steps. `#matches`: ranked roles with the skills you have and the ones to add, a "New" badge for roles not shown before, and helpful/not-helpful feedback; a locked card takes their place when the field needs the AI engine and this analysis could not use it. `#jd`: the Premium job-description match. |
+| `jobs.html` | **Jobs for you.** Open jobs in Bengaluru from each company's own careers feed, ranked for the latest resume: match percent and band, why it ranks there, the skills you have and the ones to add, and Apply / View posting links to the company's site. Search (title or company) and a workplace filter. Without a resume the jobs show newest first with an upload prompt. Save keeps a job for tracking. Credits the Bangalore Startup Map for part of the company list. |
+| `saved.html` | **Saved jobs**, grouped by where each application stands: Saved, Applied, Interviewing, Offer, Not selected. A status menu moves a job between groups; Remove drops it; a job the company closed stays, marked as closed. |
 
 ## Layout
 
 ```
 src/
-  index.html  login.html  register.html  upload.html  dashboard.html
+  index.html  login.html  register.html  upload.html  dashboard.html  jobs.html  saved.html
   favicon.svg                  the logo mark
   css/app.css                  every style: colour tokens (light and dark), site, auth, app shell, cards
   js/
@@ -62,14 +64,17 @@ src/
       dom.js                   byId, el, show/hide, setText, cloneTemplate, setBusy, renderChips
       local-store.js           try/catch JSON localStorage for the small per-browser memories
     api/                       one module per backend controller
-      auth-api.js  resume-api.js  recommendation-api.js  feedback-api.js
+      auth-api.js  resume-api.js  recommendation-api.js  feedback-api.js  tier-api.js  jobs-api.js
     components/
       shell.js                 the sidebar: account, navigation, resume versions, mobile drawer
       icons.js                 the SVG icon sprite and icon()
       signed-in.js             "already signed in" panel on the sign-in pages
     pages/
-      landing.js  login.js  register.js  upload.js  dashboard.js    one script per HTML page
+      landing.js  login.js  register.js  upload.js  dashboard.js  jobs.js  saved.js
+                               one script per HTML page
       dashboard-rules.js       tier and lock decisions (pure, unit-tested)
+      jobs-rules.js            jobs request, match band, workplace and posted labels, safe
+                               links for feed URLs, saved-job grouping (pure, unit-tested)
       insights.js              ATS check wording, fixes and points, score band, next steps,
                                new matches, score change (pure, unit-tested)
 tests/                         node --test suites for the pure modules

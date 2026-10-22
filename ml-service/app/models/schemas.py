@@ -248,3 +248,66 @@ class AnalyzeResponse(BaseModel):
     # What this analysis spent on LLM calls: None when it made none (every
     # free-tier result); a cache hit is listed as a call at zero cost.
     llm_usage: LLMUsageSummary | None = None
+
+
+# --- Job recommendations (services/job_rank.py) -----------------------------
+
+
+class JobText(BaseModel):
+    """One job posting's text, for skill extraction. `id` is the backend's."""
+
+    id: str
+    title: str
+    text: str = Field(default="", max_length=25_000)
+
+
+class ExtractJobSkillsRequest(BaseModel):
+    jobs: list[JobText] = Field(max_length=200)
+
+
+class JobSkills(BaseModel):
+    id: str
+    skills: list[str]
+
+
+class ExtractJobSkillsResponse(BaseModel):
+    jobs: list[JobSkills]
+    engine_fingerprint: EngineFingerprint
+
+
+class RankJob(BaseModel):
+    """A job to rank: its title and the skills extracted for it earlier."""
+
+    id: str
+    title: str
+    skills: list[str] = []
+
+
+class RankJobsRequest(BaseModel):
+    """The candidate's skills (as the pipeline extracted them) and their top
+    matched role titles, against the jobs to rank."""
+
+    skills: list[str]
+    roles: list[str] = []
+    jobs: list[RankJob] = Field(max_length=5_000)
+    top_n: int = Field(default=50, ge=1, le=500)
+
+
+class RankedJob(BaseModel):
+    id: str
+    # 0.45 * coverage + 0.30 * similarity + 0.25 * role_fit, 2 dp; a job whose
+    # skills couldn't be read scores 0.5 * role_fit -- see services/job_rank.py.
+    score: float
+    coverage: float
+    similarity: float
+    role_fit: float
+    matched_skills: list[str]
+    missing_skills: list[str]
+    # Which of the candidate's roles the job title is closest to, if any.
+    closest_role: str | None = None
+    explanation: str
+
+
+class RankJobsResponse(BaseModel):
+    jobs: list[RankedJob]
+    engine_fingerprint: EngineFingerprint

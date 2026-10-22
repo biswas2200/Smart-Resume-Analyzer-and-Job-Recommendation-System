@@ -3,6 +3,8 @@ package com.resumeanalyser.client;
 import com.resumeanalyser.client.dto.AnalyzeResponseDto;
 import com.resumeanalyser.client.dto.JdMatchRequestDto;
 import com.resumeanalyser.client.dto.JdMatchResponseDto;
+import com.resumeanalyser.client.dto.JobSkillsDto;
+import com.resumeanalyser.client.dto.RankJobsDto;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -20,7 +22,8 @@ import org.springframework.web.client.RestClientException;
  * covering parsing, ATS scoring, role matching, gap analysis, and explanation
  * for an uploaded resume file -- and {@code /match-jd}
  * ({@code routers/analyze.py}), the Premium JD-targeted match over an
- * already-extracted skill set.
+ * already-extracted skill set; and the job recommendation pair
+ * {@code /extract-job-skills} and {@code /rank-jobs} ({@code routers/jobs.py}).
  */
 @Component
 public class MlServiceClient {
@@ -120,6 +123,44 @@ public class MlServiceClient {
                     .body(JdMatchResponseDto.class);
         } catch (HttpClientErrorException e) {
             throw new MlServiceException("The ML service rejected the job description (" + e.getStatusCode() + ")", false, e);
+        } catch (HttpServerErrorException e) {
+            throw new MlServiceException("The ML service failed (" + e.getStatusCode() + ")", false, e);
+        } catch (ResourceAccessException e) {
+            throw new MlServiceException("Could not reach the ML service", false, e);
+        } catch (RestClientException e) {
+            throw new MlServiceException("The ML service call failed", false, e);
+        }
+    }
+
+    /**
+     * The skills each job posting asks for, extracted once when it is stored.
+     *
+     * @throws MlServiceException if the ML service is unreachable or rejects the request
+     */
+    public JobSkillsDto.Response extractJobSkills(java.util.List<JobSkillsDto.JobText> jobs) {
+        return postJson("/extract-job-skills", new JobSkillsDto.Request(jobs), JobSkillsDto.Response.class);
+    }
+
+    /**
+     * Ranks jobs for a resume, best first, each with its matched and missing
+     * skills and a one-line reason -- deterministic on the ML side, no LLM.
+     *
+     * @throws MlServiceException if the ML service is unreachable or rejects the request
+     */
+    public RankJobsDto.Response rankJobs(RankJobsDto.Request request) {
+        return postJson("/rank-jobs", request, RankJobsDto.Response.class);
+    }
+
+    private <T> T postJson(String path, Object body, Class<T> type) {
+        try {
+            return restClient.post()
+                    .uri(path)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(type);
+        } catch (HttpClientErrorException e) {
+            throw new MlServiceException("The ML service rejected the request (" + e.getStatusCode() + ")", false, e);
         } catch (HttpServerErrorException e) {
             throw new MlServiceException("The ML service failed (" + e.getStatusCode() + ")", false, e);
         } catch (ResourceAccessException e) {
