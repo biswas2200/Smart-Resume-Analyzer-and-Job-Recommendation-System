@@ -160,6 +160,7 @@ def parse_resume_local(
     profile.skills = normalize_skills([*find_skills(resume_text), *profile.skills])
     profile.education = _fill_education_years(profile.education, sections.education)
     profile.education = _fill_education_institutions(profile.education, sections.education)
+    profile.education = _widen_education_institutions(profile.education, sections.education)
     return profile
 
 
@@ -548,6 +549,44 @@ def _fill_education_institutions(
         if entry.degree.lower().endswith(institution.lower()) and len(entry.degree) > len(institution):
             entry.degree = entry.degree[: -len(institution)].strip(" ,-|")
 
+    return education
+
+
+def _widen_education_institutions(
+    education: list[EducationEntry], education_section_text: str
+) -> list[EducationEntry]:
+    """Restores the start of an institution name the model cut short. On
+    "B.Tech, Savitribai Phule Pune University, 2022" the model tags
+    "Savitribai Phule" and "University" as separate pieces and drops "Pune",
+    so the entry kept only the tail. When one separator-delimited piece of an
+    Education line names an institution, ends with the entry's institution
+    and is longer, the whole piece is used instead -- unless it also holds
+    the entry's degree, so a degree and institution written without a
+    separator are not merged.
+    """
+    if not education_section_text:
+        return education
+
+    pieces = [
+        piece
+        for line in education_section_text.splitlines()
+        for raw in _INSTITUTION_SEPARATOR_RE.split(line)
+        if _INSTITUTION_KEYWORD_RE.search(piece := raw.strip(" ."))
+    ]
+    for entry in education:
+        short = entry.institution.strip(" .").lower()
+        if not short:
+            continue
+        for piece in pieces:
+            lowered = piece.lower()
+            if (
+                len(lowered) > len(short)
+                and lowered.endswith(short)
+                and lowered[-len(short) - 1] == " "
+                and not (entry.degree and entry.degree.lower() in lowered)
+            ):
+                entry.institution = piece
+                break
     return education
 
 

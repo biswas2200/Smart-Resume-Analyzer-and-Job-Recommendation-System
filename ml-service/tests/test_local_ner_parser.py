@@ -5,12 +5,15 @@ yashpwr/resume-ner-bert model.
 """
 
 from app.models.schemas import EducationEntry
+import pytest
+
 from app.services.local_ner_parser import (
     _chunk_text,
     _entities_to_profile,
     _extract_name,
     _fill_education_institutions,
     _fill_education_years,
+    _widen_education_institutions,
     _with_source_text,
     parse_resume_local,
 )
@@ -502,6 +505,46 @@ def test_fill_education_institutions_ignores_words_that_only_contain_a_keyword()
     result = _fill_education_institutions(education, "B.Sc\nschooling completed in 2015")
 
     assert result[0].institution == ""
+
+
+# --- Institution names cut short by the model (_widen_education_institutions) -------
+
+
+@pytest.mark.parametrize("tagged", ["University", "Pune University", "Phule Pune University"])
+def test_widen_restores_the_start_of_a_cut_institution(tagged):
+    education = [EducationEntry(degree="B.Tech in Computer Science", institution=tagged, year="2022")]
+
+    result = _widen_education_institutions(
+        education, "B.Tech in Computer Science, Savitribai Phule Pune University, 2022"
+    )
+
+    assert result[0].institution == "Savitribai Phule Pune University"
+
+
+def test_widen_keeps_an_institution_that_is_already_whole():
+    education = [EducationEntry(degree="B.Tech", institution="Anna University", year="")]
+
+    result = _widen_education_institutions(education, "B.Tech, Anna University, Chennai")
+
+    assert result[0].institution == "Anna University"
+
+
+def test_widen_does_not_pull_in_a_degree_written_without_a_separator():
+    education = [EducationEntry(degree="B.E", institution="Anna University", year="")]
+
+    result = _widen_education_institutions(education, "B.E Anna University")
+
+    assert result[0].institution == "Anna University"
+
+
+def test_widen_only_matches_whole_words():
+    education = [EducationEntry(degree="B.Sc", institution="Science College", year="")]
+
+    result = _widen_education_institutions(education, "B.Sc, Life Science College, Pune")
+
+    assert result[0].institution == "Life Science College"
+    education = [EducationEntry(degree="B.Sc", institution="ege", year="")]
+    assert _widen_education_institutions(education, "B.Sc, Life Science College")[0].institution == "ege"
 
 
 # --- Entity text from the resume (_with_source_text) -------------------------
