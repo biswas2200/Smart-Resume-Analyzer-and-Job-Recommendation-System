@@ -28,7 +28,7 @@ Across all tiers the System:
 - Identifies skill gaps between a candidate's profile and target roles.
 - Scores ATS compatibility with a rule-based rubric.
 - Generates an explanation of the results: a deterministic template by default, or an LLM-written coaching narrative in Web Premium. The LLM never influences a score.
-- Updates its skill-role weights over time with an exponential-moving-average (EMA) mechanism informed by user feedback (implemented) and job-market data (planned), and publishes those weights as versioned snapshots.
+- Updates its skill-role weights over time with an exponential-moving-average (EMA) mechanism informed by user feedback and job-market data (both implemented; market data since v2.12), and publishes those weights as versioned snapshots.
 - Guarantees deterministic, reproducible results for the same input and the same engine version (§3.11).
 
 Out of scope for the current release: automated job-application submission, direct integration with employer ATS platforms, multi-language resumes, scanned-image resumes.
@@ -185,6 +185,7 @@ Priority: Urgent
 - FR-7.3 The system shall record each user's "helpful / not helpful" feedback and incorporate it into the EMA update as a weighted signal once a configurable threshold of feedback is reached. [Implemented]
 - FR-7.4 The system shall preserve prior weight-vector versions for auditability and trend reporting. [Implemented]
 - FR-7.5 The system shall export the current weights as a versioned, hashed snapshot (`{snapshot_id, created_at, weights}`) via an administrator endpoint; the core engine shall accept such a snapshot as its weights source, defaulting to uniform weights when none is supplied. [Implemented] (`GET /roles/skill-vectors/snapshot`, `weights.py`; nothing yet automates writing the export into `ml-service/app/data/weights_snapshot.json`, so an operator does that step by hand today)
+- FR-7.6 The system shall measure, daily, the share of each catalogue role's open jobs that ask for each skill, use it as that role's EMA signal (0.5 + 0.5 × share ÷ the role's most-asked share, so an unasked skill fades towards half weight, never to zero), install the updated weights in the core engine, and show users the most-asked skills for their top roles. [Implemented (v2.12)]: `ml-service/app/services/market_demand.py`, `POST /admin/jobs/market-demand`, `GET /jobs/in-demand`, `PUT /weights-snapshot`.
 
 ### 3.8 Job description (JD) matching
 Priority: Medium
@@ -436,6 +437,7 @@ The System is a student project and does not pursue formal certification. Sectio
 | Version | Date | Author | Description |
 |---|---|---|---|
 | 1.0 | 2026-08-28 | Amitosh Biswas | Initial SRS draft (Word document). |
+| 2.12 | 2026-10-22 | Amitosh Biswas | Job-market data now feeds the EMA skill weights (FR-7.6): open Bengaluru jobs are grouped by catalogue role daily, each skill's share of a role's jobs becomes its EMA signal, the weights are installed in the core engine automatically, and users see the most-asked skills for their top roles. |
 | 2.11 | 2026-10-22 | Amitosh Biswas | Engine version 0.5.2, from a hidden-text prompt-injection test: NFR-2.5 added. The PDF extractor leaves out white, tiny and off-page text (white text on a dark filled shape stays) and a new 10-point ATS check, `no_hidden_text`, reports it, so the base maximum is 90. The LLM extraction prompt delimits the resume and treats it as data; extracted skills not found in the resume text are dropped; profile fields are length-capped. |
 | 2.10 | 2026-10-21 | Amitosh Biswas | Frontend redesigned as a clean dashboard (commit 3c51f78, 2026-10-20), replacing the comic-book UI: sidebar with resume versions, resume analyzer, dashboard tabs (overview, role matches, JD match). Bootstrap is no longer used; the client is HTML, one hand-written stylesheet and vanilla JavaScript (§2.4, §6). Tested end to end against the real backend. FR-8.1 wording follows the new JD match tab. No API change. |
 | 2.9 | 2026-10-21 | Amitosh Biswas | Engine version 0.5.1, from the first end-to-end test of the new frontend: the local parser reads Indian mobile numbers written as two groups of five ("+91 98765 43210"); the template explanation names what to fix in plain words instead of check identifiers and shows the top match as a percentage; JD match no longer counts job-ad boilerplate ("hiring", "design", "equity", "inclusion", "compensation") as required skills; 17 common tools added to the engineering skill taxonomy (Kafka, Redis, GraphQL, FastAPI, Django, MongoDB and others). |

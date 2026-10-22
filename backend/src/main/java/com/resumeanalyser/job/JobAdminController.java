@@ -62,6 +62,12 @@ public class JobAdminController {
         return started(runner.startRefresh());
     }
 
+    /** Re-measures market demand from the stored jobs and updates the EMA skill weights (it also runs daily after the refresh). */
+    @PostMapping("/market-demand")
+    public ResponseEntity<JobsStatusDto> marketDemand() {
+        return started(runner.startMarketDemand());
+    }
+
     /** Re-extracts every job's skills (after the ML service's skill extractor changed). */
     @PostMapping("/reextract-skills")
     public ResponseEntity<JobsStatusDto> reextractSkills() {

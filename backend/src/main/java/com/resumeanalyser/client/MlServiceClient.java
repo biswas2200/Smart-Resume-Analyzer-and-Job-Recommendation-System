@@ -4,7 +4,9 @@ import com.resumeanalyser.client.dto.AnalyzeResponseDto;
 import com.resumeanalyser.client.dto.JdMatchRequestDto;
 import com.resumeanalyser.client.dto.JdMatchResponseDto;
 import com.resumeanalyser.client.dto.JobSkillsDto;
+import com.resumeanalyser.client.dto.MarketDemandDto;
 import com.resumeanalyser.client.dto.RankJobsDto;
+import com.resumeanalyser.skillvector.dto.WeightsSnapshotDto;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -149,6 +151,35 @@ public class MlServiceClient {
      */
     public RankJobsDto.Response rankJobs(RankJobsDto.Request request) {
         return postJson("/rank-jobs", request, RankJobsDto.Response.class);
+    }
+
+    /**
+     * Per catalogue role, the skills open jobs ask for and the EMA signal for
+     * each of the role's catalogue skills.
+     *
+     * @throws MlServiceException if the ML service is unreachable or rejects the request
+     */
+    public MarketDemandDto.Response marketDemand(java.util.List<RankJobsDto.Job> jobs) {
+        return postJson("/market-demand", new MarketDemandDto.Request(jobs), MarketDemandDto.Response.class);
+    }
+
+    /**
+     * Installs the current EMA weights in the ML service (FR-7.5), so role
+     * matching uses them from its next request.
+     *
+     * @throws MlServiceException if the ML service is unreachable or rejects the snapshot
+     */
+    public void pushWeights(WeightsSnapshotDto snapshot) {
+        try {
+            restClient.put()
+                    .uri("/weights-snapshot")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(snapshot)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientException e) {
+            throw new MlServiceException("Could not install the weights snapshot in the ML service", false, e);
+        }
     }
 
     private <T> T postJson(String path, Object body, Class<T> type) {
