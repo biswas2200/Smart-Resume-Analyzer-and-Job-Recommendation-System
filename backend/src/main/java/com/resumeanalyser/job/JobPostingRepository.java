@@ -4,6 +4,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,4 +29,10 @@ public interface JobPostingRepository extends JpaRepository<JobPosting, UUID> {
     List<JobPosting> findAllByActiveTrueOrderByFirstSeenAtDesc(Pageable pageable);
 
     long countByCompanyAndActiveTrue(Company company);
+
+    /** Marks every posting's skills as not extracted, so the next run re-reads them all. */
+    @Modifying
+    @Transactional
+    @Query("update JobPosting p set p.skills = null")
+    int clearAllSkills();
 }

@@ -15,9 +15,12 @@ compares those stored skills with the resume's:
                 catalogue roles (a "Backend Engineer" resume and an
                 "SDE II - Payments" title).
 
-score = 0.45 * coverage + 0.30 * similarity + 0.25 * role_fit. A job whose
-description yielded no skill we recognise is ranked on its title alone, at
-0.5 * role_fit, so an unreadable posting never outranks a well-matched one.
+score = 0.45 * coverage * evidence + 0.30 * similarity + 0.25 * role_fit,
+where evidence = min(1, skills the job names / 5): a job naming only 3 skills
+says little, and 2 of its 3 would otherwise count as 67% coverage and put a
+kernels job first for a Java resume. A job whose description yielded no
+skill we recognise is ranked on its title alone, at 0.5 * role_fit, so an
+unreadable posting never outranks a well-matched one.
 """
 
 import numpy as np
@@ -31,16 +34,41 @@ COVERAGE_WEIGHT = 0.45
 SIMILARITY_WEIGHT = 0.30
 ROLE_FIT_WEIGHT = 0.25
 TITLE_ONLY_WEIGHT = 0.5
+# A job naming fewer skills than this has its coverage counted proportionally less.
+FULL_EVIDENCE_SKILLS = 5
 EXPLAIN_LIMIT = 5
 # Embeddings of skills and titles are reused across requests; this bounds the cache.
 _CACHE_LIMIT = 50_000
 
 _vector_cache: dict[str, np.ndarray] = {}
 
+# Taxonomy entries that a full job posting almost always uses as ad copy, not
+# as a requirement: soft skills every ad lists ("strong communication and
+# leadership"), verbs that read as skills ("driving impact", "shipping
+# features", "running in production"), perks ("yoga", "education
+# allowance"), footer links ("follow us on Instagram") and equal-opportunity
+# text ("protected by law"). Counted, they bloated every job's skill list and
+# filled "skills to add" with them (first run, 22 Oct 2026: Communication in
+# 175 of 489 jobs, Yoga in 31, Instagram in 38). Words that are a real
+# requirement for some jobs (Sales, Operations, Testing, Social Media) stay.
+# Pasted JDs (jd_match.py) keep the shorter list: they are usually just the
+# requirements.
+_JOB_AD_WORDS = frozenset({
+    "Communication", "Communication skills", "Communications", "Interpersonal skills", "Leadership",
+    "Collaboration", "Team Building", "Problem Solving", "Analytical Skills", "Attention to detail",
+    "Creativity", "Storytelling", "Continuous Improvement", "Transparency", "Confidentiality",
+    "Driving", "Shipping", "Production", "Discovery", "Onboarding", "Tooling",
+    "Yoga", "Instagram", "Education", "Law",
+})
+
 
 def extract_job_skills(jobs: list[JobText]) -> list[JobSkills]:
-    """The canonical skills each job asks for, from its title and text."""
-    return [JobSkills(id=job.id, skills=extract_jd_skills(f"{job.title}\n{job.text}")) for job in jobs]
+    """The canonical skills each job asks for, from its title and text, minus job-ad copy."""
+    return [JobSkills(id=job.id, skills=job_skills(f"{job.title}\n{job.text}")) for job in jobs]
+
+
+def job_skills(text: str) -> list[str]:
+    return [skill for skill in extract_jd_skills(text) if skill not in _JOB_AD_WORDS]
 
 
 def rank_jobs(skills: list[str], roles: list[str], jobs: list[RankJob], top_n: int = 50) -> list[RankedJob]:
@@ -87,7 +115,8 @@ def _score(
             if candidate_vector is not None and job_vector is not None
             else 0.0
         )
-        score = COVERAGE_WEIGHT * coverage + SIMILARITY_WEIGHT * similarity + ROLE_FIT_WEIGHT * role_fit
+        evidence = min(1.0, len(job.skills) / FULL_EVIDENCE_SKILLS)
+        score = COVERAGE_WEIGHT * coverage * evidence + SIMILARITY_WEIGHT * similarity + ROLE_FIT_WEIGHT * role_fit
     else:
         coverage = similarity = 0.0
         score = TITLE_ONLY_WEIGHT * role_fit

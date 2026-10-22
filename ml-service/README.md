@@ -22,9 +22,10 @@ Job recommendations (routers/jobs.py, services/job_rank.py), also
 deterministic and LLM-free: `POST /extract-job-skills` returns each job
 posting's skills with the same extractor `/match-jd` uses (the backend stores
 them once per posting), and `POST /rank-jobs` ranks jobs for a resume:
-`score = 0.45 * coverage + 0.30 * embedding similarity + 0.25 * role fit`
-(the job title against the resume's top catalogue roles; `0.5 * role fit`
-when a job's skills couldn't be read), each job with matched/missing skills
+`score = 0.45 * coverage * evidence + 0.30 * embedding similarity + 0.25 * role fit`
+(role fit: the job title against the resume's top catalogue roles; evidence
+= `min(1, job skills / 5)`, so a job naming few skills can't win on coverage;
+`0.5 * role fit` when a job's skills couldn't be read), each job with matched/missing skills
 and a one-line reason. Embeddings of skills and titles are cached in memory.
 
 ## Domains, engines and tiers

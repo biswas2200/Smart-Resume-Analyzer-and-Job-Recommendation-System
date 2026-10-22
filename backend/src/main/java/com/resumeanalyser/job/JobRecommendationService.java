@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
  * Open jobs ranked for a user's latest resume: its extracted skills and its
@@ -36,6 +37,7 @@ public class JobRecommendationService {
     /** How many of the user's top role matches steer the ranking. */
     static final int ROLES_USED = 3;
     static final int MAX_RESULTS = 100;
+    private static final Pattern WORD_BREAK = Pattern.compile("[^\\p{L}\\p{N}+#]+");
 
     private final JobPostingRepository postings;
     private final SavedJobRepository saved;
@@ -56,7 +58,7 @@ public class JobRecommendationService {
     }
 
     /**
-     * @param query     optional words to look for in the title or company name
+     * @param query     optional words; each must start a word of the title or company name
      * @param workplace optional "onsite", "hybrid" or "remote"
      * @param limit     at most this many jobs (capped at {@value #MAX_RESULTS})
      * @throws com.resumeanalyser.client.MlServiceException if the ML service can't rank right now
@@ -120,9 +122,12 @@ public class JobRecommendationService {
         if (query == null || query.isBlank()) {
             return true;
         }
-        String haystack = (job.getTitle() + " " + job.getCompany().getName()).toLowerCase(Locale.ROOT);
-        for (String word : query.toLowerCase(Locale.ROOT).trim().split("\\s+")) {
-            if (!haystack.contains(word)) {
+        // Whole words (or their start, so "eng" finds "Engineer"): "data" must not
+        // match "Acceldata", which made every Acceldata job a "data engineer" hit.
+        List<String> words = List.of(WORD_BREAK.split(
+                (job.getTitle() + " " + job.getCompany().getName()).toLowerCase(Locale.ROOT)));
+        for (String term : WORD_BREAK.split(query.toLowerCase(Locale.ROOT).trim())) {
+            if (!term.isEmpty() && words.stream().noneMatch(word -> word.startsWith(term))) {
                 return false;
             }
         }

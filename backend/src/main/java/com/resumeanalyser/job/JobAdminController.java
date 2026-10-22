@@ -62,6 +62,12 @@ public class JobAdminController {
         return started(runner.startRefresh());
     }
 
+    /** Re-extracts every job's skills (after the ML service's skill extractor changed). */
+    @PostMapping("/reextract-skills")
+    public ResponseEntity<JobsStatusDto> reextractSkills() {
+        return started(runner.startReextractSkills());
+    }
+
     @GetMapping("/status")
     public JobsStatusDto status() {
         return new JobsStatusDto(runner.status(),

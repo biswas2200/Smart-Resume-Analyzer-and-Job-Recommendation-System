@@ -31,6 +31,12 @@ public class JobSkillService {
         this.mlServiceClient = mlServiceClient;
     }
 
+    /** Re-extracts every posting's skills -- after the ML service's extractor changed. */
+    public String reextractAll() {
+        int cleared = postings.clearAllSkills();
+        return cleared + " jobs cleared; " + extractMissing();
+    }
+
     /** @return a one-line summary of what was extracted (or why it stopped) */
     public String extractMissing() {
         int done = 0;

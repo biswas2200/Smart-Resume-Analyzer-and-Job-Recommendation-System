@@ -119,5 +119,15 @@ class JobRecommendationServiceTest {
         assertThat(JobRecommendationService.matchesFilters(backend, "backend cred", null)).isFalse();
         assertThat(JobRecommendationService.matchesFilters(backend, null, "HYBRID")).isTrue();
         assertThat(JobRecommendationService.matchesFilters(backend, "", "remote")).isFalse();
+        assertThat(JobRecommendationService.matchesFilters(backend, "eng", null)).isTrue();
+    }
+
+    @Test
+    void search_matchesWholeWords_notPartsOfACompanyName() {
+        JobPosting acceldata = job("Staff Engineer (Full Stack)", "Acceldata", "", List.of());
+        assertThat(JobRecommendationService.matchesFilters(acceldata, "data engineer", null)).isFalse();
+        assertThat(JobRecommendationService.matchesFilters(acceldata, "acceldata", null)).isTrue();
+        JobPosting cpp = job("C++ Developer", "Zoho", "", List.of());
+        assertThat(JobRecommendationService.matchesFilters(cpp, "c++", null)).isTrue();
     }
 }

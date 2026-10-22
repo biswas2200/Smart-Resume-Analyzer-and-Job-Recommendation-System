@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models.schemas import JobText, RankJob
-from app.services import embeddings, job_rank
+from app.services import embeddings, jd_match, job_rank
 
 client = TestClient(app)
 
@@ -50,6 +50,25 @@ def test_extracts_each_jobs_skills_from_title_and_text():
         assert expected in job.skills, expected
 
 
+AD_COPY = (
+    "Backend Engineer. You will be shipping features in Java and driving impact in production. "
+    "Strong communication and leadership skills. Perks: yoga, education allowance. "
+    "Follow us on Instagram. We are an equal opportunity employer as required by law."
+)
+AD_WORDS = ("Shipping", "Driving", "Production", "Communication", "Leadership", "Yoga", "Education", "Instagram", "Law")
+
+
+def test_job_ad_copy_is_not_counted_as_skills():
+    # The plain JD extractor does find these words, so the filter is what removes them.
+    unfiltered = jd_match.extract_jd_skills(AD_COPY)
+    assert all(word in unfiltered for word in AD_WORDS)
+
+    skills = job_rank.job_skills(AD_COPY)
+    assert "Java" in skills
+    for noise in AD_WORDS:
+        assert noise not in skills, noise
+
+
 def test_the_best_matched_job_ranks_first_with_its_reasons():
     ranked = job_rank.rank_jobs(
         ["Java", "Spring Boot", "SQL", "Docker"], ["Backend Engineer"], [SALES, DATA, BACKEND], top_n=3
@@ -77,6 +96,20 @@ def test_a_job_with_no_readable_skills_is_ranked_on_its_title_and_says_so():
 def test_an_unreadable_posting_never_outranks_a_well_matched_one():
     ranked = job_rank.rank_jobs(["Java", "Spring Boot", "SQL", "Kafka"], ["Backend Engineer"], [UNREADABLE, BACKEND])
     assert [job.id for job in ranked] == ["b", "u"]
+
+
+def test_a_job_naming_few_skills_cannot_win_on_coverage_alone():
+    thin = RankJob(id="t", title="Performance Engineer", skills=["REST APIs", "Machine Learning", "Git"])
+    full = RankJob(id="f", title="Performance Engineer",
+                   skills=["Java", "Spring Boot", "SQL", "Docker", "Kafka", "AWS"])
+    resume = ["Java", "Spring Boot", "SQL", "Docker", "REST APIs", "Git"]
+
+    ranked = job_rank.rank_jobs(resume, [], [thin, full])
+
+    assert [job.id for job in ranked] == ["f", "t"]
+    thin_result = ranked[1]
+    assert thin_result.coverage == 0.67  # still reported as-is in the reasons
+    assert "2 of the 3 skills" in thin_result.explanation
 
 
 def test_ranking_is_deterministic_and_ties_break_by_id():

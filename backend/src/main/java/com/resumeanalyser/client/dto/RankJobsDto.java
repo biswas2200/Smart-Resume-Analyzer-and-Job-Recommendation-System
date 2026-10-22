@@ -22,8 +22,8 @@ public final class RankJobsDto {
     ) {}
 
     /**
-     * @param score       0.45 * coverage + 0.30 * similarity + 0.25 * roleFit (0.5 * roleFit
-     *                    when the job's skills couldn't be read)
+     * @param score       0.45 * coverage * min(1, job skills / 5) + 0.30 * similarity + 0.25 * roleFit
+     *                    (0.5 * roleFit when the job's skills couldn't be read)
      * @param closestRole which of the resume's roles the job title is closest to, or null
      */
     public record RankedJob(

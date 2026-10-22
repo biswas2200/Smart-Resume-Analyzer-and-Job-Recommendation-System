@@ -295,8 +295,9 @@ class RankJobsRequest(BaseModel):
 
 class RankedJob(BaseModel):
     id: str
-    # 0.45 * coverage + 0.30 * similarity + 0.25 * role_fit, 2 dp; a job whose
-    # skills couldn't be read scores 0.5 * role_fit -- see services/job_rank.py.
+    # 0.45 * coverage * evidence + 0.30 * similarity + 0.25 * role_fit, 2 dp
+    # (evidence = min(1, job skills / 5)); a job whose skills couldn't be read
+    # scores 0.5 * role_fit -- see services/job_rank.py.
     score: float
     coverage: float
     similarity: float
