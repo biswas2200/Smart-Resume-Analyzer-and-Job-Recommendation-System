@@ -20,7 +20,11 @@ services:
       - postgres-data:/var/lib/postgresql/data
 
   minio:
-    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e  # RELEASE.2025-09-07T16-13-09Z, as in the local stack
+    # Docker Hub no longer serves MinIO's images, so this is the local stack's
+    # minio/minio:latest (RELEASE.2025-09-07T16-13-09Z) copied to the VM with
+    # docker save / docker load (deploy/README.md) and never pulled.
+    image: coverlay/minio:RELEASE.2025-09-07T16-13-09Z
+    pull_policy: never
     restart: unless-stopped
     command: server /data
     environment:

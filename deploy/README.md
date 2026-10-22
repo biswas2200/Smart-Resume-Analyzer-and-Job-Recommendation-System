@@ -39,6 +39,18 @@ gcloud compute firewall-rules create allow-http-https --allow=tcp:80,tcp:443 \
 
 ## Deploy (on the VM)
 
+Docker Hub no longer serves MinIO's images, so copy the one the local stack
+uses (laptop, once per VM):
+
+```bash
+docker tag minio/minio:latest coverlay/minio:RELEASE.2025-09-07T16-13-09Z
+docker save coverlay/minio:RELEASE.2025-09-07T16-13-09Z | gzip > minio.tar.gz
+gcloud compute scp minio.tar.gz coverlay-beta:~/ --zone=asia-south1-a
+gcloud compute ssh coverlay-beta --zone=asia-south1-a --command='gunzip -c minio.tar.gz | sudo docker load'
+```
+
+Then on the VM:
+
 ```bash
 gcloud compute ssh coverlay-beta --zone=asia-south1-a
 git clone -b BRANCH https://github.com/biswas2200/Smart-Resume-Analyzer-and-Job-Recommendation-System.git coverlay
