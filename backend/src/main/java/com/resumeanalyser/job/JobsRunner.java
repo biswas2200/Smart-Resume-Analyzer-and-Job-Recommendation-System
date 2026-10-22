@@ -26,6 +26,7 @@ public class JobsRunner {
     private final CompanyService companyService;
     private final JobRefreshService refreshService;
     private final JobSkillService skillService;
+    private final MarketDemandService marketDemandService;
     private final Clock clock;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "jobs-runner");
@@ -35,7 +36,8 @@ public class JobsRunner {
     private final AtomicReference<Run> current = new AtomicReference<>();
 
     public JobsRunner(CompanyService companyService, JobRefreshService refreshService, JobSkillService skillService,
-                      Clock clock) {
+                      MarketDemandService marketDemandService, Clock clock) {
+        this.marketDemandService = marketDemandService;
         this.companyService = companyService;
         this.refreshService = refreshService;
         this.skillService = skillService;
@@ -43,7 +45,7 @@ public class JobsRunner {
     }
 
     /**
-     * @param task     "discover", "import-startup-map", "detect", "refresh" or "reextract-skills"
+     * @param task     "discover", "import-startup-map", "detect", "refresh", "reextract-skills" or "market-demand"
      * @param state    RUNNING, DONE or FAILED
      * @param summary  what the run did (or why it failed); empty while running
      */
@@ -69,8 +71,14 @@ public class JobsRunner {
         return start("reextract-skills", skillService::reextractAll);
     }
 
+    /** Re-reads every feed, then re-measures market demand and updates the EMA weights from it. */
     public boolean startRefresh() {
-        return start("refresh", () -> refreshService.refreshAll().toString());
+        return start("refresh", () -> refreshService.refreshAll().toString(), true);
+    }
+
+    /** Re-measures market demand from the stored jobs and updates the EMA weights. */
+    public boolean startMarketDemand() {
+        return start("market-demand", () -> "jobs unchanged", true);
     }
 
     @Scheduled(cron = "${app.jobs.refresh-cron}", zone = "Asia/Kolkata")
@@ -85,8 +93,16 @@ public class JobsRunner {
         return current.get();
     }
 
-    /** False (and nothing starts) if a task is already running. */
-    private synchronized boolean start(String task, Supplier<String> work) {
+    private boolean start(String task, Supplier<String> work) {
+        return start(task, work, false);
+    }
+
+    /**
+     * False (and nothing starts) if a task is already running. Every task ends
+     * by reading the skills of new or changed postings; {@code thenMarket}
+     * also re-measures market demand from them afterwards.
+     */
+    private synchronized boolean start(String task, Supplier<String> work, boolean thenMarket) {
         Run running = current.get();
         if (running != null && running.finishedAt() == null) {
             return false;
@@ -95,8 +111,10 @@ public class JobsRunner {
         current.set(new Run(task, "RUNNING", startedAt, null, ""));
         executor.submit(() -> {
             try {
-                // Every task ends by reading the skills of any new or changed posting.
                 String summary = work.get() + "; " + skillService.extractMissing();
+                if (thenMarket) {
+                    summary += "; " + marketDemandService.update();
+                }
                 current.set(new Run(task, "DONE", startedAt, clock.instant(), summary));
             } catch (RuntimeException e) {
                 log.error("Job task {} failed", task, e);
