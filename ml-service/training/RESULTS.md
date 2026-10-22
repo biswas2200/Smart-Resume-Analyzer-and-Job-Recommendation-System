@@ -186,3 +186,21 @@ clean. The licence questions are settled for this non-commercial project
 
 GPU VM about 48 minutes, about $0.72 at the estimated $0.90 an hour; runs 1
 and 2 together about $4.20. The VM is stopped; its disk is kept.
+
+## Parser: institution names cut short (2026-10-22, engine 0.5.4)
+
+On "B.Tech, Savitribai Phule Pune University, 2022" the teacher tags
+"Savitribai Phule" and "University" separately and drops "Pune", so the
+profile kept a fragment. `_widen_education_institutions` takes the whole
+separator-delimited piece of the Education line that names an institution
+and ends with the entry's institution (word boundary, never when the piece
+holds the degree). Scored with `evaluate_model.py --turks-fixes` on the beta
+VM (e2-standard-2, CPU), before and after the change:
+
+| Field macro F1 | Before | After |
+|---|---|---|
+| Teacher, DataTurks test (Institution) | 84 % (77 %) | 84 % (77 %) |
+| Teacher, unseen LiveCareer (Institution) | 90 % (89 %) | 90 % (89 %) |
+| Upstream `yashpwr`, DataTurks (Institution) | 76 % (73 %) | 76 % (72 %) |
+
+No change for the served model; kept, since it fixes the reported resume.
