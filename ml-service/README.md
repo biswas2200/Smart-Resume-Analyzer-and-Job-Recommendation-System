@@ -28,6 +28,13 @@ them once per posting), and `POST /rank-jobs` ranks jobs for a resume:
 `0.5 * role fit` when a job's skills couldn't be read), each job with matched/missing skills
 and a one-line reason. Embeddings of skills and titles are cached in memory.
 
+Job-market demand (services/market_demand.py, SRS FR-7.6): `POST /market-demand`
+groups open jobs by the catalogue role their title is closest to and returns,
+per role with at least 3 jobs, the skills they ask for and an EMA signal per
+catalogue skill. The backend feeds those into its skill weights and pushes the
+result back with `PUT /weights-snapshot`, which writes
+`app/data/weights_snapshot.json` (git-ignored) and clears the matcher's caches.
+
 ## Domains, engines and tiers
 
 `app/data/domains.json` lists every job domain the service knows, each with an

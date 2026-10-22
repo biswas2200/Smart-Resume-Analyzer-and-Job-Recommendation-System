@@ -52,3 +52,21 @@ def weight_for(role: str, skill: str) -> float:
     """
     weights = _load_snapshot().get("weights", {})
     return weights.get(role, {}).get(skill, DEFAULT_WEIGHT)
+
+
+def install_snapshot(snapshot: dict) -> None:
+    """Writes a snapshot pushed by the backend as weights_snapshot.json and
+    drops every cache built from the previous one, so the next match uses it.
+    On a stateless host (Cloud Run) the file lasts until the instance
+    restarts; the backend pushes again after every daily market update.
+    """
+    from app.services import fingerprint, matcher  # imported here: both import this module
+
+    WEIGHTS_SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = WEIGHTS_SNAPSHOT_PATH.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(snapshot, sort_keys=True), encoding="utf-8")
+    tmp.replace(WEIGHTS_SNAPSHOT_PATH)
+    _load_snapshot.cache_clear()
+    matcher._role_vector.cache_clear()
+    fingerprint.engine_fingerprint.cache_clear()
+

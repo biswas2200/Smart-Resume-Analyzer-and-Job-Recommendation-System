@@ -312,3 +312,52 @@ class RankedJob(BaseModel):
 class RankJobsResponse(BaseModel):
     jobs: list[RankedJob]
     engine_fingerprint: EngineFingerprint
+
+
+# --- Job-market demand (services/market_demand.py) ---------------------------
+
+
+class MarketDemandRequest(BaseModel):
+    """Open jobs with their stored skills; the service groups them by role."""
+
+    jobs: list[RankJob] = Field(max_length=20_000)
+
+
+class SkillDemand(BaseModel):
+    skill: str
+    # Share of this role's open jobs that ask for the skill, 2 dp.
+    share: float
+
+
+class RoleDemand(BaseModel):
+    role: str
+    domain: str
+    job_count: int
+    # The skills these jobs ask for most, most-asked first.
+    in_demand: list[SkillDemand]
+    # One EMA signal in [0.5, 1.0] per skill in the role's catalogue entry
+    # (FR-7.2's new_signal; see services/market_demand.py).
+    signals: dict[str, float]
+
+
+class MarketDemandResponse(BaseModel):
+    roles: list[RoleDemand]
+    # Jobs whose title matched no catalogue role closely enough.
+    unassigned_jobs: int
+
+
+class WeightsSnapshot(BaseModel):
+    """The backend's weights export (FR-7.5). Accepts the backend's camelCase
+    field names as well as the snake_case ones weights_snapshot.json uses."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    snapshot_id: str = Field(alias="snapshotId")
+    created_at: str = Field(default="", alias="createdAt")
+    sha256: str = ""
+    weights: dict[str, dict[str, float]]
+
+
+class WeightsSnapshotAck(BaseModel):
+    snapshot_id: str
+    roles: int
