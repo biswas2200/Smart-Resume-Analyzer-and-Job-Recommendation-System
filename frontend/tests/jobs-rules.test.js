@@ -6,6 +6,7 @@ import {
   emptyState,
   employmentLabel,
   locationLabel,
+  isNewJob,
   isRanked,
   groupSaved,
   jobsQuery,
@@ -138,4 +139,20 @@ test('locationLabel: one location when a feed lists the same place several ways'
   assert.equal(locationLabel('Bangalore'), 'Bangalore');
   assert.equal(locationLabel(''), null);
   assert.equal(locationLabel(null), null);
+});
+
+test('isNewJob: open jobs first seen in the last 7 days are new', () => {
+  const now = new Date('2026-10-22T12:00:00Z');
+  const seen = (firstSeenAt, active = true) => ({ firstSeenAt, active });
+  assert.equal(isNewJob(seen('2026-10-22T09:00:00Z'), now), true);
+  assert.equal(isNewJob(seen('2026-10-15T12:00:01Z'), now), true);
+  assert.equal(isNewJob(seen('2026-10-15T12:00:00Z'), now), false, 'exactly 7 days old is no longer new');
+  assert.equal(isNewJob(seen('2026-10-01T00:00:00Z'), now), false);
+  assert.equal(isNewJob(seen('2026-10-22T09:00:00Z', false), now), false, 'a closed job is never new');
+  assert.equal(isNewJob(seen(null), now), false);
+  assert.equal(
+    isNewJob({ ...seen('2026-10-01T00:00:00Z'), publishedAt: '2026-10-21T00:00:00Z' }, now),
+    false,
+    'uses firstSeenAt, not publishedAt',
+  );
 });
