@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,6 +30,9 @@ public interface JobPostingRepository extends JpaRepository<JobPosting, UUID> {
     List<JobPosting> findAllByActiveTrueOrderByFirstSeenAtDesc(Pageable pageable);
 
     long countByCompanyAndActiveTrue(Company company);
+
+    /** Open postings of a company first seen after {@code since} (the watchlist's "new" count). */
+    long countByCompanyAndActiveTrueAndFirstSeenAtAfter(Company company, Instant since);
 
     /** Marks every posting's skills as not extracted, so the next run re-reads them all. */
     @Modifying
