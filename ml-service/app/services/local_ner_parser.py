@@ -102,7 +102,7 @@ _MIN_ENTITY_SCORE = 0.0
 # "schooling" doesn't count; the short acronyms cover the Indian institute
 # names common in the annotated data (IIT Bombay, NIT Trichy, ...).
 _INSTITUTION_KEYWORD_RE = re.compile(
-    r"\b(?:university|college|institute|institution|school|academy|vidyalaya|polytechnic|iit|nit|iiit|bits)\b",
+    r"\b(?:universit(?:y|ies)|colleges?|institutes?|institutions?|schools?|academy|vidyalaya|polytechnic|iit|nit|iiit|bits)\b",
     re.IGNORECASE,
 )
 # Separators between the degree, institution and place on one line. The
@@ -160,6 +160,7 @@ def parse_resume_local(
     profile.skills = normalize_skills([*find_skills(resume_text), *profile.skills])
     profile.education = _fill_education_years(profile.education, sections.education)
     profile.education = _fill_education_institutions(profile.education, sections.education)
+    profile.education = _align_education_to_lines(profile.education, sections.education)
     profile.education = _widen_education_institutions(profile.education, sections.education)
     return profile
 
@@ -549,6 +550,61 @@ def _fill_education_institutions(
         if entry.degree.lower().endswith(institution.lower()) and len(entry.degree) > len(institution):
             entry.degree = entry.degree[: -len(institution)].strip(" ,-|")
 
+    return education
+
+
+def _align_education_to_lines(
+    education: list[EducationEntry], education_section_text: str
+) -> list[EducationEntry]:
+    """Pairs each degree with the institution and year written next to it.
+
+    The model's entities come in document order, and assembly attaches an
+    institution to the degree before it. That is right when a resume writes
+    the degree first, but on one that writes the institution line first
+    ("Nitte Meenakshi Institute of Technology / Master of Computer
+    Applications (MCA); SGPA: 7.69 2025 - 2027 / Koshys Group of
+    Institutions / Bachelor of Computer Applications (BCA)") every degree
+    got the next degree's institution. Here the order is read from the
+    lines: if the first institution line comes before the first degree
+    line, each degree takes the institution line just above it, otherwise
+    the one just below. An institution on the degree's own line wins, and
+    an entry is left alone when no institution line is next to it.
+
+    The year is the latest year on the degree's line (or else on its
+    institution's line), so "2025 - 2027" gives 2027. A degree's trailing
+    separator (the ";" before "SGPA") is dropped.
+    """
+    for entry in education:
+        entry.degree = entry.degree.strip().rstrip(" ;,:|-–").strip()
+    if not education_section_text:
+        return education
+
+    lines = [line.strip() for line in education_section_text.splitlines() if line.strip()]
+    degree_lines: dict[int, int] = {}
+    for index, entry in enumerate(education):
+        if entry.degree:
+            found = next((i for i, line in enumerate(lines) if entry.degree.lower() in line.lower()), None)
+            if found is not None:
+                degree_lines[index] = found
+    if not degree_lines:
+        return education
+
+    taken = set(degree_lines.values())
+    institution_lines = {i for i, line in enumerate(lines) if i not in taken and _institution_in_line(line)}
+    institution_first = bool(institution_lines) and min(institution_lines) < min(taken)
+    step = -1 if institution_first else 1
+
+    for index, line_no in degree_lines.items():
+        entry = education[index]
+        same_line = _institution_in_line(lines[line_no])
+        paired = line_no + step
+        if same_line and entry.degree.lower() not in same_line.lower():
+            entry.institution = same_line
+        elif paired in institution_lines:
+            entry.institution = _institution_in_line(lines[paired])
+        years = _YEAR_RE.findall(lines[line_no]) or (_YEAR_RE.findall(lines[paired]) if paired in institution_lines else [])
+        if years:
+            entry.year = max(years)
     return education
 
 

@@ -8,6 +8,7 @@ from app.models.schemas import EducationEntry
 import pytest
 
 from app.services.local_ner_parser import (
+    _align_education_to_lines,
     _chunk_text,
     _entities_to_profile,
     _extract_name,
@@ -586,3 +587,62 @@ def test_parse_resume_local_reports_titles_as_written():
     profile = parse_resume_local(text, ner_pipeline=fake_pipeline)
 
     assert profile.experience[0].title == "Technical Lead/Operations Manager"
+
+
+# --- Pairing degrees with the institution and year next to them (_align_education_to_lines) ---
+
+
+def test_align_pairs_each_degree_with_the_institution_line_above_it():
+    education = [
+        EducationEntry(degree="Master of Computer Applications (MCA);", institution="Group of Institutions", year=""),
+        EducationEntry(degree="Bachelor of Computer Applications (BCA)", institution="Nitte Meenakshi", year="2025"),
+    ]
+    text = (
+        "Nitte Meenakshi Institute of Technology Bangalore, India\n"
+        "Master of Computer Applications (MCA); SGPA: 7.69 2025 \u2013 2027\n"
+        "Koshys Group of Institutions Bangalore, India\n"
+        "Bachelor of Computer Applications (BCA); CGPA: 7.17 2024"
+    )
+
+    result = _align_education_to_lines(education, text)
+
+    assert [(e.degree, e.institution, e.year) for e in result] == [
+        ("Master of Computer Applications (MCA)", "Nitte Meenakshi Institute of Technology Bangalore", "2027"),
+        ("Bachelor of Computer Applications (BCA)", "Koshys Group of Institutions Bangalore", "2024"),
+    ]
+
+
+def test_align_pairs_each_degree_with_the_institution_line_below_it():
+    education = [
+        EducationEntry(degree="M.Tech in CSE", institution="PSG College of Technology", year=""),
+        EducationEntry(degree="B.Tech in IT", institution="", year=""),
+    ]
+    text = "M.Tech in CSE\nNIT Trichy 2020\nB.Tech in IT\nPSG College of Technology 2018"
+
+    result = _align_education_to_lines(education, text)
+
+    assert [(e.institution, e.year) for e in result] == [("NIT Trichy 2020", "2020"), ("PSG College of Technology 2018", "2018")]
+
+
+def test_align_prefers_an_institution_on_the_degree_line():
+    education = [EducationEntry(degree="B.Tech", institution="Wrong College", year="")]
+
+    result = _align_education_to_lines(education, "B.Tech, Anna University, Chennai, 2019\nIIT Madras")
+
+    assert (result[0].institution, result[0].year) == ("Anna University", "2019")
+
+
+def test_align_leaves_an_entry_alone_when_no_institution_line_is_next_to_it():
+    education = [EducationEntry(degree="B.Sc", institution="St. Xavier's College", year="2015")]
+
+    result = _align_education_to_lines(education, "B.Sc\nGPA 3.8\nSt. Xavier's College")
+
+    assert (result[0].institution, result[0].year) == ("St. Xavier's College", "2015")
+
+
+def test_fill_education_institutions_knows_plural_keywords():
+    education = [EducationEntry(degree="BCA", institution="", year="")]
+
+    assert _fill_education_institutions(education, "BCA\nKoshys Group of Institutions")[0].institution == (
+        "Koshys Group of Institutions"
+    )

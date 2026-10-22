@@ -62,3 +62,40 @@ def test_a_heading_like_line_that_is_not_alone_on_its_line_is_not_treated_as_a_h
 
     assert sections.other == text
     assert sections.skills == ""
+
+
+def test_a_projects_heading_ends_education():
+    text = (
+        "Education\nNitte Meenakshi Institute of Technology\nMCA 2027\n"
+        "Projects\nMeme Arena | voting platform\n"
+        "Hackathons & Open Source Contributions\nOpenKeyHub\n"
+        "Technical Skills\nJava, SQL"
+    )
+
+    sections = split_sections(text)
+
+    assert sections.education == "Nitte Meenakshi Institute of Technology\nMCA 2027"
+    assert "Meme Arena" in sections.other and "OpenKeyHub" in sections.other
+    assert sections.skills == "Java, SQL"
+
+
+def test_internships_count_as_experience():
+    sections = split_sections("Internships\nSoftware Intern, Acme\nEducation\nB.Tech")
+
+    assert sections.experience == "Software Intern, Acme"
+    assert sections.education == "B.Tech"
+
+
+def test_only_unparsed_headings_still_fall_back_to_the_whole_text():
+    text = "Projects\nMeme Arena\nCertifications\nAWS Cloud Foundations"
+
+    sections = split_sections(text)
+
+    assert sections.other == text
+    assert sections.education == "" and sections.experience == ""
+
+
+def test_a_long_line_starting_with_a_heading_word_is_content():
+    text = "Education\nB.Tech\nProjects built during the degree include a compiler and a database engine"
+
+    assert "compiler" in split_sections(text).education
