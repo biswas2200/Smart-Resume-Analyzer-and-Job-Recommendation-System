@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -72,5 +73,12 @@ class WatchlistControllerTest {
         mockMvc.perform(delete("/watchlist/{id}", companyId).with(csrf())).andExpect(status().isNoContent());
 
         verify(watchlistService).unwatch(asha, companyId);
+    }
+
+    @Test
+    @WithMockUser(username = "asha@example.com")
+    void watch_withAMalformedId_isABadRequest() throws Exception {
+        mockMvc.perform(put("/watchlist/{id}", "not-a-uuid").with(csrf())).andExpect(status().isBadRequest());
+        verifyNoInteractions(watchlistService);
     }
 }

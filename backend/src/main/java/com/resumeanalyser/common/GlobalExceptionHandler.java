@@ -11,6 +11,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import java.util.List;
 import java.util.UUID;
 
@@ -60,6 +61,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleUnreadableBody(HttpMessageNotReadableException e) {
         return ResponseEntity.badRequest()
                 .body(ApiError.of(HttpStatus.BAD_REQUEST.value(), "Request body is malformed or has an invalid value"));
+    }
+
+    /**
+     * Handles a path or query value of the wrong type, e.g. {@code PUT /watchlist/not-a-uuid}.
+     * That is the caller's mistake, so it's a 400, not a 500.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        return ResponseEntity.badRequest()
+                .body(ApiError.of(HttpStatus.BAD_REQUEST.value(), "Invalid value for '" + e.getName() + "'"));
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
