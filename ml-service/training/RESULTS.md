@@ -204,3 +204,27 @@ VM (e2-standard-2, CPU), before and after the change:
 | Upstream `yashpwr`, DataTurks (Institution) | 76 % (73 %) | 76 % (72 %) |
 
 No change for the served model; kept, since it fixes the reported resume.
+
+## Parser: education pairing and section headings (2026-10-22, engine 0.5.5)
+
+Found on a real fresher resume that writes the institution line above each
+degree and has Projects and Hackathons sections but no Experience: project
+lines were read as education, and each degree got the other degree's
+institution. Changes: headings the parser doesn't read end the section above
+them; each degree is paired with the adjacent institution line in the
+direction the resume uses, with the year from its own line; plural
+institution keywords; 15 skills added to the taxonomy. Scored on the beta VM
+(`evaluate_model.py --turks-fixes`), teacher, before -> after:
+
+| Field F1 | DataTurks test | Unseen LiveCareer |
+|---|---|---|
+| Degree | 81 % -> 83 % | 90 % -> 90 % |
+| Institution | 77 % -> 82 % | 89 % -> 88 % |
+| Grad. year | 87 % -> 88 % | 90 % -> 94 % |
+| Job title | 86 % -> 85 % | 93 % -> 93 % |
+| Company | 76 % -> 74 % | (anonymised) |
+| **Macro** | **84 % -> 85 %** | **90 % -> 91 %** |
+
+Kept: education fields gain clearly; job title and company lose 1-2 points
+on DataTurks, likely where a new heading now ends text that used to run on
+into Experience. Worth a look in the next round.
