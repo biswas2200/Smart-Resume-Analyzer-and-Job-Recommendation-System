@@ -1,7 +1,9 @@
 package com.resumeanalyser.job;
 
 import com.resumeanalyser.account.User;
+import com.resumeanalyser.common.LimitReachedException;
 import com.resumeanalyser.common.ResourceNotFoundException;
+import com.resumeanalyser.common.TooManyRequestsException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -19,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -32,6 +36,7 @@ class WatchlistServiceTest {
     @Mock private WatchedCompanyRepository watched;
     @Mock private CompanyRepository companies;
     @Mock private JobPostingRepository postings;
+    @Mock private WatchlistRateLimiter rateLimiter;
 
     private WatchlistService service;
     private final User user = new User();
@@ -39,7 +44,8 @@ class WatchlistServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new WatchlistService(watched, companies, postings, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new WatchlistService(watched, companies, postings, new WatchlistProperties(2, 10, 60),
+                rateLimiter, Clock.fixed(NOW, ZoneOffset.UTC));
         company = new Company();
         company.setId(UUID.randomUUID());
         company.setName("Groww");
@@ -81,6 +87,49 @@ class WatchlistServiceTest {
         UUID missing = UUID.randomUUID();
         when(companies.findById(missing)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.watch(user, missing)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void watchingANewCompanyAtTheCap_isRefused() {
+        when(companies.findById(company.getId())).thenReturn(Optional.of(company));
+        when(watched.findByUserAndCompany(user, company)).thenReturn(Optional.empty());
+        when(watched.countByUser(user)).thenReturn(2L);
+
+        assertThatThrownBy(() -> service.watch(user, company.getId()))
+                .isInstanceOf(LimitReachedException.class)
+                .hasMessageContaining("up to 2 companies");
+        verify(watched, never()).save(any());
+    }
+
+    @Test
+    void watchingACompanyAlreadyWatched_isFineAtTheCap() {
+        when(companies.findById(company.getId())).thenReturn(Optional.of(company));
+        when(watched.findByUserAndCompany(user, company)).thenReturn(Optional.of(entry(NOW)));
+
+        assertThat(service.watch(user, company.getId()).name()).isEqualTo("Groww");
+        verify(watched, never()).countByUser(any());
+    }
+
+    @Test
+    void changingTooQuickly_stopsBeforeTouchingTheDatabase() {
+        doThrow(new TooManyRequestsException("slow down", Duration.ofSeconds(30)))
+                .when(rateLimiter).recordChange(user.getId());
+
+        assertThatThrownBy(() -> service.watch(user, company.getId())).isInstanceOf(TooManyRequestsException.class);
+        assertThatThrownBy(() -> service.unwatch(user, company.getId())).isInstanceOf(TooManyRequestsException.class);
+        verifyNoInteractions(companies, watched);
+    }
+
+    @Test
+    void limits_reportTheCapAndHowManyAreWatched() {
+        when(watched.countByUser(user)).thenReturn(1L);
+
+        var limits = service.limits(user);
+
+        assertThat(limits.maxCompanies()).isEqualTo(2);
+        assertThat(limits.watching()).isEqualTo(1);
+        assertThat(limits.changesPerMinute()).isEqualTo(10);
+        assertThat(limits.changesPerHour()).isEqualTo(60);
     }
 
     @Test

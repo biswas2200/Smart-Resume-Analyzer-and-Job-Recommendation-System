@@ -2,7 +2,8 @@ import { beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { API_BASE_URL } from '../src/js/config.js';
-import { getWatchlist, searchCompanies, unwatchCompany, watchCompany } from '../src/js/api/watchlist-api.js';
+import { ApiError } from '../src/js/core/api-error.js';
+import { getWatchlist, getWatchlistLimits, searchCompanies, unwatchCompany, watchCompany } from '../src/js/api/watchlist-api.js';
 
 // watchlist-api.js goes through http.js, which only needs localStorage, location and fetch.
 Object.defineProperty(globalThis, 'localStorage', {
@@ -37,4 +38,24 @@ test('watchCompany and unwatchCompany use the encoded company id', async () => {
     ['PUT', '/watchlist/a%2Fb', undefined],
     ['DELETE', '/watchlist/c1', undefined],
   ]);
+});
+
+test('getWatchlistLimits reads the cap and change limits', async () => {
+  await getWatchlistLimits();
+  assert.deepEqual(calls, [['GET', '/watchlist/limits', undefined]]);
+});
+
+test('a 429 or 409 from the backend reaches the page with its message', async () => {
+  for (const [status, message] of [
+    [429, 'Try again in 42 seconds.'],
+    [409, 'You can watch up to 25 companies. Stop watching one to add another.'],
+  ]) {
+    globalThis.fetch = async () => new Response(JSON.stringify({ status, message }), { status });
+    await assert.rejects(watchCompany('c1'), (error) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.status, status);
+      assert.equal(error.body.message, message);
+      return true;
+    });
+  }
 });
