@@ -96,3 +96,26 @@ export function tierLabel(role, previewMode = false) {
 }
 
 export const PREVIEW_MESSAGE = 'Preview';
+
+/**
+ * The job-market demand (`GET /jobs/in-demand`) for one role match, or null when there is
+ * nothing worth showing: the role wasn't measured, too few open jobs to say (jobCount 0), or
+ * no skills. Roles are matched by title, which is how the backend keys them.
+ */
+export function demandFor(inDemand, roleTitle) {
+  const role = (inDemand?.roles ?? []).find((entry) => entry.role === roleTitle);
+  if (!role || !role.jobCount || !(role.skills ?? []).length) {
+    return null;
+  }
+  return role;
+}
+
+/** "Python · 62%": a skill and the share of the role's open jobs asking for it. */
+export function demandChipLabel(skill) {
+  return `${skill.skill} · ${Math.round((skill.share ?? 0) * 100)}%`;
+}
+
+/** "What 14 open jobs for this role ask for" (one job reads "1 open job asks"). */
+export function demandHeading(jobCount) {
+  return jobCount === 1 ? 'What 1 open job for this role asks for' : `What ${jobCount} open jobs for this role ask for`;
+}

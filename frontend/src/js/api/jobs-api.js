@@ -13,6 +13,15 @@ export function getRecommended(filters = {}) {
   return get(jobsQuery(filters));
 }
 
+/**
+ * What open jobs ask for in the user's top role matches: `{ roles: [{ role, jobCount,
+ * computedAt, skills: [{ skill, share, have }] }] }`, most-asked skills first. `jobCount` 0
+ * means too few jobs to say; `roles` is empty before the first resume.
+ */
+export function getInDemand() {
+  return get('/jobs/in-demand');
+}
+
 /** The user's saved jobs, newest first: `[{ job, status, savedAt, updatedAt }]`. */
 export function getSaved() {
   return get('/jobs/saved');

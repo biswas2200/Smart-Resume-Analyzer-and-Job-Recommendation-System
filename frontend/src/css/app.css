@@ -124,6 +124,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .chips-green li { background: var(--green-soft); border-color: transparent; color: var(--green); }
 .chips-amber li { background: var(--amber-soft); border-color: transparent; color: var(--amber); }
+/* In-demand skills on a role card: neutral chips, green where the resume already has it. */
+.chips-demand li.have { background: var(--green-soft); border-color: transparent; color: var(--green); }
+.in-demand { display: grid; gap: 8px; }
+.demand-note { font-size: 12.5px; }
 
 .field { display: grid; gap: 6px; }
 .field label { font-weight: 600; font-size: 13.5px; }
