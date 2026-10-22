@@ -19,6 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -52,12 +53,17 @@ public class SecurityConfig {
      *
      * @return a CORS configuration applied to every endpoint, allowing the
      *         configured origin(s) ({@code app.cors.allowed-origins}) to send
-     *         any method/header, including the {@code Authorization} bearer token
+     *         any method/header, including the {@code Authorization} bearer token.
+     *         The list is comma-separated, spaces around entries are ignored, and an
+     *         entry may be a pattern such as {@code https://*.example.app} for preview deploys
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(allowedOrigins.split(",")));
+        configuration.setAllowedOriginPatterns(Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
