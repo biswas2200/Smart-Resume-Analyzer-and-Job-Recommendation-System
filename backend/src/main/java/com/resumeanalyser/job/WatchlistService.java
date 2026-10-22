@@ -1,9 +1,12 @@
 package com.resumeanalyser.job;
 
 import com.resumeanalyser.account.User;
+import com.resumeanalyser.common.LimitReachedException;
 import com.resumeanalyser.common.ResourceNotFoundException;
+import com.resumeanalyser.common.TooManyRequestsException;
 import com.resumeanalyser.job.dto.CompanyOptionDto;
 import com.resumeanalyser.job.dto.WatchedCompanyDto;
+import com.resumeanalyser.job.dto.WatchlistLimitsDto;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
@@ -24,14 +27,26 @@ public class WatchlistService {
     private final WatchedCompanyRepository watched;
     private final CompanyRepository companies;
     private final JobPostingRepository postings;
+    private final WatchlistProperties limits;
+    private final WatchlistRateLimiter rateLimiter;
     private final Clock clock;
 
     public WatchlistService(WatchedCompanyRepository watched, CompanyRepository companies,
-                            JobPostingRepository postings, Clock clock) {
+                            JobPostingRepository postings, WatchlistProperties limits,
+                            WatchlistRateLimiter rateLimiter, Clock clock) {
         this.watched = watched;
         this.companies = companies;
         this.postings = postings;
+        this.limits = limits;
+        this.rateLimiter = rateLimiter;
         this.clock = clock;
+    }
+
+    /** The limits every user has, and how many companies this user watches now. */
+    @Transactional(readOnly = true)
+    public WatchlistLimitsDto limits(User user) {
+        return new WatchlistLimitsDto(limits.maxCompanies(), watched.countByUser(user),
+                limits.changesPerMinute(), limits.changesPerHour());
     }
 
     @Transactional(readOnly = true)
@@ -43,15 +58,23 @@ public class WatchlistService {
     }
 
     /**
-     * Adds a company to the watchlist; adding it again changes nothing.
+     * Adds a company to the watchlist; adding it again changes nothing. Every
+     * call counts towards the change rate limit, even a repeat.
      *
+     * @throws TooManyRequestsException  if the user is changing the watchlist too quickly
      * @throws ResourceNotFoundException if there is no such company
+     * @throws LimitReachedException     if the user already watches the most companies allowed
      */
     @Transactional
     public WatchedCompanyDto watch(User user, UUID companyId) {
+        rateLimiter.recordChange(user.getId());
         Company company = companies.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("No company with id " + companyId));
         WatchedCompany entry = watched.findByUserAndCompany(user, company).orElseGet(() -> {
+            if (watched.countByUser(user) >= limits.maxCompanies()) {
+                throw new LimitReachedException("You can watch up to " + limits.maxCompanies()
+                        + " companies. Stop watching one to add another.");
+            }
             WatchedCompany created = new WatchedCompany();
             created.setUser(user);
             created.setCompany(company);
@@ -61,9 +84,15 @@ public class WatchlistService {
         return toDto(entry, clock.instant().minus(NEW_FOR));
     }
 
-    /** Removes a company from the watchlist; nothing happens if it wasn't there. */
+    /**
+     * Removes a company from the watchlist; nothing happens if it wasn't there.
+     * Counts towards the change rate limit like {@link #watch}.
+     *
+     * @throws TooManyRequestsException if the user is changing the watchlist too quickly
+     */
     @Transactional
     public void unwatch(User user, UUID companyId) {
+        rateLimiter.recordChange(user.getId());
         companies.findById(companyId).flatMap(company -> watched.findByUserAndCompany(user, company))
                 .ifPresent(watched::delete);
     }

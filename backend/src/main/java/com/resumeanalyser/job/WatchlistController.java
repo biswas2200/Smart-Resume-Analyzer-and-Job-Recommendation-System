@@ -5,6 +5,7 @@ import com.resumeanalyser.account.UserRepository;
 import com.resumeanalyser.common.ResourceNotFoundException;
 import com.resumeanalyser.job.dto.CompanyOptionDto;
 import com.resumeanalyser.job.dto.WatchedCompanyDto;
+import com.resumeanalyser.job.dto.WatchlistLimitsDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -33,6 +34,12 @@ public class WatchlistController {
     @GetMapping
     public List<WatchedCompanyDto> list(Authentication authentication) {
         return watchlistService.list(currentUser(authentication));
+    }
+
+    /** The cap and change rate every user has, and how many companies this user watches. */
+    @GetMapping("/limits")
+    public WatchlistLimitsDto limits(Authentication authentication) {
+        return watchlistService.limits(currentUser(authentication));
     }
 
     /** Companies to add, by name; empty for a blank query. */
