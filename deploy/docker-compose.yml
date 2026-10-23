@@ -69,6 +69,8 @@ services:
       CORS_ALLOWED_ORIGINS: https://${SITE_ADDRESS:?set in deploy/.env}
       JWT_SECRET: ${JWT_SECRET:?set in deploy/.env}
       APP_ADMIN_EMAILS: ${APP_ADMIN_EMAILS:-}
+      GITHUB_ISSUES_TOKEN: ${GITHUB_ISSUES_TOKEN:-}
+      GITHUB_ISSUES_REPO: ${GITHUB_ISSUES_REPO:-biswas2200/Smart-Resume-Analyzer-and-Job-Recommendation-System}
       PREVIEW_MODE: ${PREVIEW_MODE:-true}
       JOBS_USER_AGENT: ${JOBS_USER_AGENT:-Coverlay/0.6 (student project; job feed reader)}
 

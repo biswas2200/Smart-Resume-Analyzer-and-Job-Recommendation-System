@@ -105,6 +105,20 @@ public class GlobalExceptionHandler {
                 .body(ApiError.of(HttpStatus.CONFLICT.value(), e.getMessage()));
     }
 
+    /** Handles a request that conflicts with the current state (e.g. a report already reviewed): 409. */
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiError> handleConflict(ConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiError.of(HttpStatus.CONFLICT.value(), e.getMessage()));
+    }
+
+    /** Handles an outside service (e.g. GitHub) that isn't set up or failed: 503. */
+    @ExceptionHandler(ExternalServiceException.class)
+    public ResponseEntity<ApiError> handleExternalService(ExternalServiceException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiError.of(HttpStatus.SERVICE_UNAVAILABLE.value(), e.getMessage()));
+    }
+
     /**
      * Handles a request rejected by a {@code @PreAuthorize} check (see
      * {@code SecurityConfig}'s {@code @EnableMethodSecurity}) -- the caller is

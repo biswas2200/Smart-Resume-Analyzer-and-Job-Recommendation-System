@@ -74,6 +74,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-32-bytes-minimum-please}
       # Comma-separated emails that become ADMIN on register/login.
       APP_ADMIN_EMAILS: ${APP_ADMIN_EMAILS:-}
+      GITHUB_ISSUES_TOKEN: ${GITHUB_ISSUES_TOKEN:-}
+      GITHUB_ISSUES_REPO: ${GITHUB_ISSUES_REPO:-biswas2200/Smart-Resume-Analyzer-and-Job-Recommendation-System}
       PREVIEW_MODE: ${PREVIEW_MODE:-true}
     ports:
       - "8080:8080"
