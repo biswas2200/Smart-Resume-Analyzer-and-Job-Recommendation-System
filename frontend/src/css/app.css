@@ -451,6 +451,42 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .watch-add-form { display: grid; gap: 12px; margin-top: 12px; max-width: 520px; }
 
 /* ---------- responsive ---------- */
+/* ---------- bug reports ---------- */
+.bug-dialog {
+  width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--surface); color: var(--text); box-shadow: var(--shadow);
+}
+.bug-dialog::backdrop { background: rgb(16 18 27 / 0.45); }
+.bug-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px 0; }
+.bug-head h2 { font-size: 19px; }
+.bug-close { display: grid; width: 34px; height: 34px; }
+.bug-form, .bug-thanks { display: grid; gap: 14px; padding: 16px 20px 20px; }
+.bug-disclaimer {
+  display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; padding: 12px 14px; border-radius: var(--radius-sm);
+  background: var(--amber-soft); color: var(--text); font-size: 13.5px;
+}
+.bug-disclaimer .icon { width: 18px; height: 18px; color: var(--amber); margin-top: 1px; }
+.bug-disclaimer p { margin-top: 4px; color: var(--muted); }
+.bug-meta { display: flex; justify-content: flex-end; }
+.bug-counter { font-family: var(--mono); font-size: 11.5px; }
+.bug-confirm { display: flex; align-items: flex-start; gap: 10px; font-weight: 600; font-size: 13.5px; cursor: pointer; }
+.bug-confirm input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--accent); }
+.bug-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.bug-mine-box { margin: 0 20px 20px; font-size: 13.5px; }
+.bug-mine-box summary { cursor: pointer; font-weight: 600; }
+.bug-mine { display: grid; gap: 8px; margin-top: 10px; padding: 0; list-style: none; }
+.bug-mine li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.bug-mine-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bug-status { font-size: 12.5px; color: var(--muted); }
+.bug-status-approved, .bug-status-linked { color: var(--green); }
+.bug-list { display: grid; gap: 16px; }
+.bug-card { display: grid; gap: 8px; }
+.bug-card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-top: 6px; }
+.bug-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 13px; }
+.bug-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.bug-review { display: grid; gap: 10px; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
+.bug-review-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
 @media (max-width: 1100px) {
   .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid-main, .grid-jd, .analyzer { grid-template-columns: minmax(0, 1fr); }

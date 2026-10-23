@@ -5,6 +5,7 @@ import { el, setText } from '../core/dom.js';
 import { clearSession, getUser } from '../core/session.js';
 import { initials, shortDate } from '../pages/insights.js';
 import { PREVIEW_MESSAGE, tierLabel } from '../pages/dashboard-rules.js';
+import { openBugReport } from './bug-report.js';
 import { hydrateIcons, icon } from './icons.js';
 
 // The app shell shared by the signed-in pages (upload, dashboard, jobs, saved, watchlist): the sidebar with the
@@ -51,6 +52,20 @@ export function renderShell(active) {
 
   versionList = el('ul', { class: 'sb-versions' }, el('li', { class: 'sb-empty' }, 'Loading…'));
 
+  const reportBug = el('button', { class: 'sb-link', type: 'button' }, icon('alert'), 'Report a bug');
+  reportBug.addEventListener('click', () => {
+    setDrawer(false);
+    openBugReport();
+  });
+
+  // Only administrators see the review queue; the backend enforces it either way.
+  const adminLink = el('a', { class: 'sb-link', href: 'admin-bugs.html', 'data-nav': 'admin-bugs', hidden: true },
+    icon('check'), 'Bug reports (admin)');
+  const paintAdmin = () => {
+    adminLink.hidden = role !== 'ADMIN';
+  };
+  paintAdmin();
+
   const signOut = el('button', { class: 'sb-link', type: 'button' }, icon('logout'), 'Sign out');
   signOut.addEventListener('click', () => {
     clearSession();
@@ -72,7 +87,7 @@ export function renderShell(active) {
     nav,
     el('p', { class: 'sb-label' }, 'Resume versions'),
     versionList,
-    el('div', { class: 'sb-foot' }, signOut),
+    el('div', { class: 'sb-foot' }, adminLink, reportBug, signOut),
   );
   setActive(active);
 
@@ -94,6 +109,7 @@ export function renderShell(active) {
     (fresh) => {
       role = fresh.role;
       paintTier();
+      paintAdmin();
     },
     () => undefined,
   );

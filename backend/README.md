@@ -16,6 +16,7 @@ recommendations and feedback.
 | `feedback` | `POST /feedback`, `GET /feedback/{recommendationId}` | Helpful/not-helpful verdicts (FR-10.1); triggers the skill-vector recompute once enough feedback accumulates |
 | `skillvector` | `GET /roles/{roleId}/skill-vectors`, `POST /roles/{roleId}/skill-vectors/recompute` (ADMIN only) | Versioned, EMA-weighted skill store (FR-7.1-7.4) |
 | `job` | `GET /jobs`, `GET /jobs/recommended`, `GET /jobs/in-demand`, `GET /jobs/saved`, `PUT`/`DELETE /jobs/{id}/saved`; `POST /admin/jobs/discover`, `/import-startup-map`, `/detect`, `/refresh`, `/reextract-skills`, `/market-demand`, `GET /admin/jobs/status`, `GET`/`POST /admin/jobs/companies` (ADMIN only) | Bengaluru companies, their open jobs (read from each company's public hiring-tool feed), jobs ranked for your resume, saved jobs. See [Jobs](#jobs) |
+| `bugreport` | `POST /bug-reports`, `GET /bug-reports/mine`; `GET /admin/bug-reports`, `POST /admin/bug-reports/{id}/approve`, `/link`, `/reject` (ADMIN only) | Users' bug reports, held privately until an admin reviews them; only approved ones become GitHub issues. See [Bug reports](#bug-reports) |
 | `client` | — | Typed HTTP client wrapping the ML service |
 
 ## Running locally
@@ -75,6 +76,18 @@ Job recommendations, step 1: which companies we follow and their open jobs in Be
 | Lever | `api.lever.co/v0/postings/{slug}?mode=json` |
 | Greenhouse | `boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true` |
 | Ashby | `api.ashbyhq.com/posting-api/job-board/{slug}` |
+
+## Bug reports
+
+Signed-in users report a bug from the sidebar ("Report a bug"): three short sections (what went wrong, what they expected, optionally how to see it), a tick confirming they wrote it themselves without AI tools (required, checked server-side), and the page and browser added by the app. At most `BUG_REPORTS_PER_DAY` (5) a day per user.
+
+Reports wait in `bug_reports` as PENDING; nothing reaches GitHub on its own. An admin reviews them on `admin-bugs.html`:
+
+- **Approve** opens an issue in `GITHUB_ISSUES_REPO` with the admin's title, the three sections as quotes, the page, browser, date and report id, and the labels `bug`, `user-report`. The reporter's email never goes to GitHub, and `@` is defused so a report can't ping anyone. Needs `GITHUB_ISSUES_TOKEN`: a fine-grained token with **Issues: read and write** on that repository only. Without it, approving answers 503 with that message.
+- **Link** points the report at an existing issue (`#42` or its link; a pull request or a missing number is refused). Works without a token.
+- **Reject** keeps it off GitHub.
+
+The reporter sees the outcome and the admin's note (never the admin) under "Your reports" in the same dialog.
 
 ## Logging
 

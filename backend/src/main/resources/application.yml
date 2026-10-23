@@ -89,6 +89,15 @@ app:
     max-companies: ${WATCHLIST_MAX_COMPANIES:25}
     changes-per-minute: ${WATCHLIST_CHANGES_PER_MINUTE:10}
     changes-per-hour: ${WATCHLIST_CHANGES_PER_HOUR:60}
+  bug-reports:
+    # Users' bug reports wait in our database until an admin reviews them
+    # (admin-bugs.html); only an approved report becomes a GitHub issue.
+    per-day: ${BUG_REPORTS_PER_DAY:5}
+    github-repo: ${GITHUB_ISSUES_REPO:biswas2200/Smart-Resume-Analyzer-and-Job-Recommendation-System}
+    # A fine-grained token with Issues: read and write on that repository
+    # only. Empty = approving is off (linking to an existing issue still works).
+    github-token: ${GITHUB_ISSUES_TOKEN:}
+    labels: [bug, user-report]
   admin:
     # Bootstrap administrators: accounts with these emails (comma-separated)
     # become ADMIN when they register or log in, so the first admin never

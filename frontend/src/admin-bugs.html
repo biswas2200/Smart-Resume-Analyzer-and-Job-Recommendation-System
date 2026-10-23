@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bug reports · Coverlay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div class="scrim" id="scrim" hidden></div>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn" id="menu-button" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false"><i data-icon="menu"></i></button>
+        <div>
+          <p class="crumb">Admin</p>
+          <h1 class="page-title">Bug reports</h1>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="Report status">
+        <a class="tab" href="#PENDING" data-tab="PENDING">Waiting for review</a>
+        <a class="tab" href="#APPROVED" data-tab="APPROVED">On GitHub</a>
+        <a class="tab" href="#LINKED" data-tab="LINKED">Linked</a>
+        <a class="tab" href="#REJECTED" data-tab="REJECTED">Rejected</a>
+      </nav>
+
+      <div class="content">
+        <p class="hint">Nothing reaches GitHub until you act here. <strong>Approve</strong> opens a new issue with your title;
+          <strong>Link</strong> points the report at an issue that already exists; <strong>Reject</strong> keeps it off GitHub.
+          The reporter sees the outcome and your note, never your name.</p>
+        <div class="skeleton" id="status-loading" aria-label="Loading reports"><div class="card tall"></div></div>
+        <div class="card empty" id="status-error" hidden>
+          <i data-icon="alert"></i>
+          <h3 id="error-title">Could not load the reports</h3>
+          <p id="load-error"></p>
+        </div>
+        <div class="card empty" id="status-empty" hidden>
+          <i data-icon="check"></i>
+          <h3>Nothing here</h3>
+          <p id="empty-text">No reports with this status.</p>
+        </div>
+        <div class="bug-list" id="list" hidden></div>
+      </div>
+    </div>
+
+    <template id="report-template">
+      <article class="card bug-card">
+        <div class="bug-card-head">
+          <span class="mono muted" data-field="meta"></span>
+          <a data-field="issue" target="_blank" rel="noopener noreferrer" hidden></a>
+        </div>
+        <h3>What went wrong</h3>
+        <p class="bug-text" data-field="what"></p>
+        <h3>What was expected</h3>
+        <p class="bug-text" data-field="expected"></p>
+        <div data-field="steps-box">
+          <h3>How to see it</h3>
+          <p class="bug-text" data-field="steps"></p>
+        </div>
+        <p class="field-hint" data-field="context"></p>
+        <p class="field-hint" data-field="note" hidden></p>
+        <form class="bug-review" data-field="review">
+          <div class="field">
+            <label>GitHub issue title</label>
+            <input class="input" name="title" maxlength="200" />
+          </div>
+          <div class="bug-review-row">
+            <button class="btn btn-primary btn-sm" type="submit" data-action="approve">Approve: open issue</button>
+          </div>
+          <div class="field">
+            <label>Or link an existing issue</label>
+            <input class="input" name="issue" placeholder="#42 or the issue link" />
+          </div>
+          <div class="field">
+            <label>Note for the reporter <span class="muted">(optional)</span></label>
+            <input class="input" name="note" maxlength="500" />
+          </div>
+          <div class="bug-review-row">
+            <button class="btn btn-secondary btn-sm" type="button" data-action="link">Link</button>
+            <button class="btn btn-ghost btn-sm" type="button" data-action="reject">Reject</button>
+          </div>
+          <p class="field-error" data-field="error" role="alert"></p>
+        </form>
+      </article>
+    </template>
+
+    <script type="module" src="js/pages/admin-bugs.js"></script>
+  </body>
+</html>
